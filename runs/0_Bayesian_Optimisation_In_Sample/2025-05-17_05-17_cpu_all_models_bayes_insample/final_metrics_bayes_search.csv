@@ -1,0 +1,2 @@
+Model,Validation MSE,In-sample R2 (%),Success Ratio (%),"CER Model (%, ann.)","CER HA (%, ann.)","CER Gain vs HA (%, ann.)",Best Hyperparameters
+HA_Benchmark,,0.0,59.106529209621996,0.005206856817942547,0.005206856817942547,0.0,N/A

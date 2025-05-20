@@ -1,6 +1,12 @@
 # Equity Premium Prediction with Neural Networks
 
-This repository contains tools for predicting equity premiums using neural network models with a focus on hyperparameter optimization and economic value analysis.
+This framework provides a comprehensive and customizable approach to neural network development for equity premium prediction. The codebase offers a systematic implementation of three leading hyperparameter optimization methods:
+
+- **Grid Search**: Exhaustive search over specified parameter values
+- **Random Search**: Efficient exploration of parameter space through random sampling
+- **Bayesian Optimization**: Intelligent search guided by probabilistic models of parameter performance
+
+The framework's modular design supports rigorous model evaluation through in-sample validation, out-of-sample testing, economic value analysis, and advanced window-based testing methodologies. Each component is carefully engineered to provide meaningful insights into forecasting performance while maintaining research reproducibility.
 
 ## Setup
 

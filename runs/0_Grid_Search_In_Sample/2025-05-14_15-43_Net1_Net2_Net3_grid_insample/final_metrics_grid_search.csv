@@ -1,0 +1,5 @@
+Model,Validation MSE,In-sample R2 (%),Success Ratio (%),"CER Model (%, ann.)","CER HA (%, ann.)","CER Gain vs HA (%, ann.)",Best Hyperparameters
+Net1,0.6013193130493164,4.170056854192328,61.73688736027515,0.0293535530772715,0.006115248587605548,0.02323830448966595,"{'dropout': 0.1, 'n_hidden1': 64, 'optimizer': 'Adam', 'lr': 0.0001, 'weight_decay': 0.0, 'l1_lambda': 0.001, 'batch_size': 256}"
+Net2,0.6230490803718567,7.816205754015604,63.11263972484953,0.04932769141845483,0.006115248587605548,0.04321244283084928,"{'dropout': 0.1, 'n_hidden1': 128, 'n_hidden2': 32, 'optimizer': 'Adam', 'lr': 0.0001, 'weight_decay': 0.0001, 'l1_lambda': 0.0, 'batch_size': 128}"
+Net3,0.6139029264450073,14.66709944602722,69.38950988822012,0.1374579073797122,0.006115248587605548,0.13134265879210666,"{'dropout': 0.1, 'n_hidden1': 128, 'n_hidden2': 64, 'n_hidden3': 32, 'optimizer': 'Adam', 'lr': 0.0005, 'weight_decay': 0.0001, 'l1_lambda': 0.0001, 'batch_size': 256}"
+HA_Benchmark,,0.0,59.41530524505589,0.006115248587605548,0.006115248587605548,0.0,N/A

@@ -1,0 +1,7 @@
+Economic Value Analysis
+=====================
+Date: 2025-05-18 01:57:07
+OOS Start Date: 200001
+Window Sizes: [1, 3]
+Predictions File: ./runs/2_Economic_Value_Analysis\combined_predictions.csv
+Data Path: ./data

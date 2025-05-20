@@ -1,0 +1,3 @@
+Model,Validation MSE,In-sample R2 (%),Success Ratio (%),"CER Model (%, ann.)","CER HA (%, ann.)","CER Gain vs HA (%, ann.)",Best Hyperparameters
+Net1,0.2965397834777832,41.17388650804814,83.67697594501719,0.17378211941144933,0.005206856817942547,0.16857526259350677,"{'batch_size': 128, 'l1_lambda': 0.001, 'lr': 0.002, 'module__activation_hidden': 'relu', 'module__dropout': 0.1, 'module__n_hidden1': 256, 'optimizer': <class 'torch.optim.adam.Adam'>, 'optimizer__weight_decay': 0.001}"
+HA_Benchmark,,0.0,59.106529209621996,0.005206856817942547,0.005206856817942547,0.0,N/A
