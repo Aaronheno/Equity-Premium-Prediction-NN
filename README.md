@@ -127,24 +127,45 @@ Evaluate model performance across different risk aversion levels:
 
 ### 10. Profit Optimization
 
-Implements trading strategies optimized for direct profit maximization:
-- Customizable position sizing, leverage, and transaction cost parameters
-- Provides realistic performance evaluation incorporating market frictions
-- Data is min-max scaled before processing (as in Xiu and Liu, 2024)
-- Automatically handles date format conversion from the FRED format
-- Limited to data from 199001 to 202312 for consistency
+Tune models to directly maximize profit instead of minimizing statistical error metrics:
+- Implements a realistic trading strategy with institutional constraints
+- Long positions with leverage (up to 150%) when predictions are positive
+- Investment in risk-free assets when predictions are negative
+- Includes institutional-level transaction costs (0.07% per trade)
+- Supports both binary and proportional position sizing
 
-In-sample optimization with FRED variables:
-- Grid Search (`fred_variables` with optimization-method=grid)
-- Random Search (`fred_variables` with optimization-method=random)
-- Bayesian Optimization (`fred_variables` with optimization-method=bayes)
+This approach aligns model training with economic goals rather than statistical accuracy, potentially leading to better real-world trading performance. The profit optimization includes both in-sample tuning and out-of-sample evaluation phases.
 
-Out-of-sample evaluation with FRED variables:
-- Grid Search OOS (`grid_oos_7`)
-- Random Search OOS (`random_oos_7`)
-- Bayesian Optimization OOS (`bayes_oos_7`)
+Results are saved following the consistent naming convention with `10_` prefix for directories.
 
-Results are saved following the consistent naming convention with `7_` prefix.
+```bash
+# Run profit optimization with default parameters (grid search)
+python -m src.cli run --method profit_optimization_10 --models Net1 Net2 --data-source original
+
+# Custom trading parameters (risk-free rate, leverage, transaction costs)
+python -m src.cli run --method profit_optimization_10 --models Net1 Net2 --rf-rate 0.02 --max-leverage 1.2 --transaction-cost 0.001
+
+# Different position sizing strategies
+python -m src.cli run --method profit_optimization_10 --models Net3 Net4 --position-sizing proportional
+
+# Out-of-sample evaluation of profit-optimized models
+python -m src.cli run --method profit_oos_10 --models Net1 Net2 --oos-start-date 200001
+```
+
+Additional options:
+- `--max-leverage`: Maximum leverage allowed (default: 1.5 or 150%)
+- `--transaction-cost`: Cost per transaction (default: 0.0007 or 0.07%)
+- `--position-sizing`: Method for sizing positions ('binary' or 'proportional')
+
+#### Direct Script Access (Alternative)
+
+```bash
+# Direct script execution for profit optimization
+python -m src.experiments.profit_optimization_10 --models Net1 Net2 --method grid --max-leverage 1.5
+
+# Direct script execution for out-of-sample evaluation
+python -m src.experiments.profit_oos_10 --models Net1 Net2 --oos-start-date 200001
+```
 
 ## Using the CLI
 
@@ -481,53 +502,6 @@ python -m src.experiments.profit_optimization_10 --models Net1 Net2 --method gri
 # Direct script execution for out-of-sample evaluation
 python -m src.experiments.profit_oos_10 --models Net1 Net2 --oos-start-date 200001
 ```
-
-## Testing
-
-The framework includes a comprehensive test suite that validates all components. Tests are organized into stages matching the framework's architecture (stages 0-10).
-
-### Running Tests
-
-All tests can be executed using the `run_tests.py` script in the `tests` directory:
-
-```bash
-# Run quick tests for rapid validation
-python tests/run_tests.py --quick
-
-# Run thorough tests for comprehensive validation
-python tests/run_tests.py --thorough
-
-# Test specific stages (e.g., stages 1, 5, and 10)
-python tests/run_tests.py --quick --stage 1 5 10
-```
-
-### Test Modes
-
-- **Quick Tests**: Fast tests that validate core functionality without extensive computational overhead. Perfect for quick verification after code changes.
-  - Automatically skips resource-intensive stage 0 (in-sample tests)
-  - Uses minimal datasets and iteration counts
-  - Typically completes in under 2 minutes
-
-- **Thorough Tests**: Comprehensive tests that validate all aspects of the framework, including edge cases and complex scenarios.
-  - Tests all components including hyperparameter optimization
-  - Uses larger datasets and more iterations
-  - May take 5-10 minutes to complete
-
-### Test Structure
-
-The tests are organized by stages matching the framework components:
-
-| Test File | Description |
-|-----------|-------------|
-| `test_stage0_in_sample.py` | In-sample hyperparameter optimization |
-| `test_stage1_oos.py` | Out-of-sample evaluation |
-| `test_stage2_economic_value.py` | Economic value analysis |
-| `test_stage3_4_window_analysis.py` | Rolling and expanding window analyses |
-| `test_stage5_mae.py` | MAE-based validation schemes |
-| `test_stage6_7_data_sources.py` | Alternative data sources |
-| `test_stage8_variable_importance.py` | Variable importance analysis |
-| `test_stage9_gamma_sensitivity.py` | Gamma sensitivity analysis |
-| `test_stage10_profit_optimization.py` | Profit optimization methods |
 
 ## Models
 
