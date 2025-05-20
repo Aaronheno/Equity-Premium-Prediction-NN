@@ -1,4 +1,4 @@
-import torch
+import torch    
 from torch import nn
 
 # helper – maps string → activation
@@ -29,7 +29,7 @@ class _Base(nn.Module):
         return self.net(x)
 
 class Net1(_Base):
-    def __init__(self, n_feature, n_hidden1, n_output, dropout=0.0, activation_hidden="relu", **kw):
+    def __init__(self, n_feature, n_output=1, n_hidden1=64, activation_hidden='relu', dropout=0.1):
         super().__init__([n_feature, n_hidden1, n_output], dropout, activation_hidden)
 
 class Net2(_Base):
@@ -48,38 +48,70 @@ class Net5(_Base):
     def __init__(self, n_feature, n_hidden1, n_hidden2, n_hidden3, n_hidden4, n_hidden5, n_output, dropout=0.0, activation_hidden="relu", **kw):
         super().__init__([n_feature, n_hidden1, n_hidden2, n_hidden3, n_hidden4, n_hidden5, n_output], dropout, activation_hidden)
 
-class _DBlock(nn.Module):
-    def __init__(self, inp, outp, dropout, act="relu"):
+class DBlock(nn.Module):
+    def __init__(self, n_in, n_out, activation_fn_name="relu", dropout_rate=0.0, use_batch_norm=True):
         super().__init__()
-        self.seq = nn.Sequential(
-            nn.Linear(inp, outp), nn.BatchNorm1d(outp), _ACT[act], nn.Dropout(dropout)
-        )
+        self.linear = nn.Linear(n_in, n_out)
+        
+        if activation_fn_name.lower() == "relu":
+            self.activation_fn = nn.ReLU()
+        elif activation_fn_name.lower() == "leaky_relu":
+            self.activation_fn = nn.LeakyReLU()
+        elif activation_fn_name.lower() == "elu":
+            self.activation_fn = nn.ELU()
+        elif activation_fn_name.lower() == "selu":
+            self.activation_fn = nn.SELU()
+        elif activation_fn_name.lower() == "gelu":
+            self.activation_fn = nn.GELU()
+        else:
+            raise ValueError(f"Unsupported activation function: {activation_fn_name}")
+
+        self.dropout = nn.Dropout(dropout_rate) if dropout_rate > 0 else None
+        self.bn = nn.BatchNorm1d(n_out) if use_batch_norm else None
+
     def forward(self, x):
-        return self.seq(x)
+        x = self.linear(x)
+        # Apply BatchNorm before activation, common practice
+        if self.bn:
+            # Only apply BatchNorm if batch size > 1 during training.
+            # In eval mode, BatchNorm uses running stats and works fine with batch size 1.
+            if x.size(0) > 1 or not self.training:
+                x = self.bn(x)
+            # If batch_size is 1 and self.training is True, skip BN.
+            # This prevents the "Expected more than 1 value per channel" error.
+            # Note: Skipping BN for batch_size=1 means running_mean/var are not updated by these batches.
+            # This is generally acceptable as single-sample estimates are very noisy.
+        
+        x = self.activation_fn(x)
+        
+        if self.dropout:
+            x = self.dropout(x)
+        return x
 
 class DNet1(nn.Module):
     def __init__(self, n_feature, n_hidden1, n_hidden2, n_hidden3, n_hidden4, n_output, dropout=0.1, activation_fn="relu", **kw):
         super().__init__()
         self.blocks = nn.Sequential(
-            _DBlock(n_feature, n_hidden1, dropout, activation_fn),
-            _DBlock(n_hidden1, n_hidden2, dropout, activation_fn),
-            _DBlock(n_hidden2, n_hidden3, dropout, activation_fn),
-            _DBlock(n_hidden3, n_hidden4, dropout, activation_fn),
+            DBlock(n_feature, n_hidden1, activation_fn, dropout),
+            DBlock(n_hidden1, n_hidden2, activation_fn, dropout),
+            DBlock(n_hidden2, n_hidden3, activation_fn, dropout),
+            DBlock(n_hidden3, n_hidden4, activation_fn, dropout),
         )
         self.out = nn.Linear(n_hidden4, n_output)
     def forward(self, x):
         return self.out(self.blocks(x))
 
 class DNet2(nn.Module):
-    def __init__(self, n_feature, n_hidden1, n_hidden2, n_hidden3, n_hidden4, n_output, dropout=0.1, activation_fn="relu", **kw):
+    def __init__(self, n_feature, n_hidden1, n_hidden2, n_hidden3, n_hidden4, n_hidden5, n_output, dropout=0.1, activation_fn="relu", **kw):
         super().__init__()
         self.blocks = nn.Sequential(
-            _DBlock(n_feature, n_hidden1, dropout, activation_fn),
-            _DBlock(n_hidden1, n_hidden2, dropout, activation_fn),
-            _DBlock(n_hidden2, n_hidden3, dropout, activation_fn),
-            _DBlock(n_hidden3, n_hidden4, dropout, activation_fn),
+            DBlock(n_feature, n_hidden1, activation_fn, dropout),
+            DBlock(n_hidden1, n_hidden2, activation_fn, dropout),
+            DBlock(n_hidden2, n_hidden3, activation_fn, dropout),
+            DBlock(n_hidden3, n_hidden4, activation_fn, dropout),
+            DBlock(n_hidden4, n_hidden5, activation_fn, dropout),
         )
-        self.out = nn.Linear(n_hidden4, n_output)
+        self.out = nn.Linear(n_hidden5, n_output)
     def forward(self, x):
         return self.out(self.blocks(x))
 
@@ -87,11 +119,11 @@ class DNet3(nn.Module):
     def __init__(self, n_feature, n_hidden1, n_hidden2, n_hidden3, n_hidden4, n_hidden5, n_output, dropout=0.1, activation_fn="relu", **kw):
         super().__init__()
         self.blocks = nn.Sequential(
-            _DBlock(n_feature, n_hidden1, dropout, activation_fn),
-            _DBlock(n_hidden1, n_hidden2, dropout, activation_fn),
-            _DBlock(n_hidden2, n_hidden3, dropout, activation_fn),
-            _DBlock(n_hidden3, n_hidden4, dropout, activation_fn),
-            _DBlock(n_hidden4, n_hidden5, dropout, activation_fn),
+            DBlock(n_feature, n_hidden1, activation_fn, dropout),
+            DBlock(n_hidden1, n_hidden2, activation_fn, dropout),
+            DBlock(n_hidden2, n_hidden3, activation_fn, dropout),
+            DBlock(n_hidden3, n_hidden4, activation_fn, dropout),
+            DBlock(n_hidden4, n_hidden5, activation_fn, dropout),
         )
         self.out = nn.Linear(n_hidden5, n_output)
     def forward(self, x):

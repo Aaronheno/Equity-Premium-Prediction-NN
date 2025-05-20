@@ -1,0 +1,10 @@
+Model,Validation MSE,In-sample R2 (%),Success Ratio (%),CER Gain vs HA (%)
+Net1,inf,,,
+Net2,inf,,,
+Net3,inf,,,
+Net4,inf,,,
+Net5,inf,,,
+DNet1,inf,,,
+DNet2,inf,,,
+DNet3,inf,,,
+HA,,0.0,59.41530524505589,0.0
