@@ -1,8 +1,0 @@
-Timestamp: 2025-05-18_17-56
-Models: ['Net1']
-Integration mode: standalone
-Device: cpu
-Gamma for CER: 3.0
-Threads: 4
-Epochs: 75
-Batch size: 128
