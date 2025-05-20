@@ -1,6 +1,12 @@
 # Equity Premium Prediction with Neural Networks
 
-This repository contains tools for predicting equity premiums using neural network models with a focus on hyperparameter optimization and economic value analysis.
+This framework provides a comprehensive and customizable approach to neural network development for equity premium prediction. The codebase offers a systematic implementation of three leading hyperparameter optimization methods:
+
+- **Grid Search**: Exhaustive search over specified parameter values
+- **Random Search**: Efficient exploration of parameter space through random sampling
+- **Bayesian Optimization**: Intelligent search guided by probabilistic models of parameter performance
+
+The framework's modular design supports model evaluation through in-sample validation, out-of-sample testing, economic value analysis, and advanced window-based testing methodologies. Each component is carefully engineered to provide meaningful insights into forecasting performance while maintaining research reproducibility.
 
 ## Setup
 
@@ -19,7 +25,7 @@ Place your data files in the `./data` directory:
 
 ## Workflow Structure
 
-The analysis pipeline is structured in four stages:
+The analysis pipeline is structured in multiple stages, each focused on different aspects of model development and evaluation:
 
 ### 0. In-Sample Hyperparameter Optimization
 
@@ -106,6 +112,24 @@ The newly identified variables are available from 1990-01 to 2021-12. Results ar
 Process and evaluate macroeconomic variables from the `FRED_MD` sheet in the data file:
 - Using all three optimization methods (grid, random, Bayesian)
 - With corresponding out-of-sample evaluation scripts
+
+### 8. Variable Importance Analysis
+
+Assess the relative importance of individual predictors using permutation-based techniques:
+- Supports analysis across different data sources (original, newly identified, FRED)
+- Provides insights into which variables drive predictive performance
+
+### 9. Gamma Sensitivity Analysis
+
+Evaluate model performance across different risk aversion levels:
+- Calculates model performance metrics across a range of risk aversion coefficients
+- Identifies which models perform best for different investor risk profiles
+
+### 10. Profit Optimization
+
+Implements trading strategies optimized for direct profit maximization:
+- Customizable position sizing, leverage, and transaction cost parameters
+- Provides realistic performance evaluation incorporating market frictions
 - Data is min-max scaled before processing (as in Xiu and Liu, 2024)
 - Automatically handles date format conversion from the FRED format
 - Limited to data from 199001 to 202312 for consistency
@@ -444,7 +468,6 @@ python -m src.cli run --method profit_oos_10 --models Net1 Net2 --oos-start-date
 ```
 
 Additional options:
-- `--rf-rate`: Annual risk-free rate (default: 0.03 or 3%)
 - `--max-leverage`: Maximum leverage allowed (default: 1.5 or 150%)
 - `--transaction-cost`: Cost per transaction (default: 0.0007 or 0.07%)
 - `--position-sizing`: Method for sizing positions ('binary' or 'proportional')
@@ -512,7 +535,7 @@ Available neural network models:
 - `Net1`: Single hidden layer
 - `Net2`: Two hidden layers
 - `Net3`: Three hidden layers
-- `Net4`: Three hidden layers with skip connections
+- `Net4`: Four hidden layers with skip connections
 - `Net5`: Five hidden layers with skip connections
 - `DNet1`: Deep network with 4 layers
 - `DNet2`: Deep network with 5 layers
@@ -525,3 +548,4 @@ Available neural network models:
 - Economic value analysis results are saved to `./runs/2_Economic_Value_Analysis/`
 
 Each result directory contains model outputs, predictions, performance metrics, and visualizations.
+
