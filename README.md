@@ -383,7 +383,7 @@ The implementation follows the approach demonstrated in Xiu and Liu (2024), usin
 ### 8. Variable Importance Analysis
 
 Analyze the importance of individual predictor variables by measuring how model performance changes when each variable is removed from the dataset:
-- Evaluates multiple machine learning models (PLS, PCR, LASSO, ENet, RF, NN2, NN4, Ridge)
+- Evaluates all neural network models (Net1, Net2, Net3, Net4, Net5, DNet1, DNet2, DNet3)
 - Calculates out-of-sample R-squared reduction when each variable is eliminated
 - Visualizes the most important variables for each model
 - Works with all three data sources (original variables, newly identified variables, or FRED variables)
