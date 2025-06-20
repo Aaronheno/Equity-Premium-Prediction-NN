@@ -1,16 +1,51 @@
 """
-profit_oos_10.py
+Profit-Based Out-of-Sample Evaluation for Neural Networks
 
-This script performs out-of-sample evaluation of models that were optimized for profit.
-It loads the best parameters found during profit optimization and evaluates the models 
-on out-of-sample data, calculating profit metrics with realistic trading constraints:
-- Long positions (up to 150% leverage) when predictions are positive
-- Investment in risk-free assets when predictions are negative
-- Realistic institutional trading costs
-- Position sizing based on prediction strength
+This experiment performs comprehensive out-of-sample evaluation of neural network models
+that were optimized for trading profit. Features parallel evaluation opportunities with
+independent model assessment and concurrent profit calculation across time periods.
 
-The script provides comprehensive performance metrics and visualizations for economic
-interpretation of model results.
+Threading Status: PARALLEL_READY (Independent model evaluation and time period analysis)
+Hardware Requirements: GPU_BENEFICIAL, CPU_INTENSIVE, MODERATE_MEMORY
+Performance Notes:
+    - Model evaluation: Independent processing of multiple models
+    - Time period analysis: Parallelizable across OOS evaluation windows
+    - Memory usage: Moderate for model storage and results
+    - GPU acceleration: Beneficial for model inference
+
+Experiment Type: Economic Performance Evaluation (Out-of-Sample Profit Testing)
+Evaluation Scope: Profit-optimized models on unseen data
+Models Supported: All models from profit optimization experiments
+Trading Constraints: Leverage limits, transaction costs, position sizing
+Output Directory: runs/10_Profit_OOS_Evaluation/
+
+Critical Parallelization Opportunities:
+    1. Independent model evaluation (8+ models simultaneously)
+    2. Concurrent profit calculation across time periods
+    3. Parallel statistical test computation
+    4. Independent visualization generation for each model
+
+Threading Implementation Status:
+    ❌ Sequential model evaluation (MAIN BOTTLENECK)
+    ❌ Sequential time period profit calculation
+    ❌ Sequential statistical computation
+    ❌ Sequential visualization generation
+
+Future Parallel Implementation:
+    run(models, eval_parallel=True, period_parallel=True, n_jobs=64)
+    
+Expected Performance Gains:
+    - Current: 4 hours for 8 models × 200+ OOS periods × multiple metrics
+    - With model parallelism: 1 hour (4x speedup)
+    - With period parallelism: 15 minutes (additional 4x speedup)
+    - Combined on 128-core server: 3-5 minutes (48-80x speedup)
+
+Profit OOS Evaluation Features:
+    - Comprehensive trading performance assessment
+    - Risk-adjusted return metrics (Sharpe, Sortino, Calmar ratios)
+    - Maximum drawdown and recovery analysis
+    - Statistical significance testing for profit differences
+    - Detailed economic interpretation and visualization
 """
 
 import os

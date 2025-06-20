@@ -1,8 +1,34 @@
 """
-Grid search hyperparameter optimization using MAE as the scoring function (in-sample).
+Grid Search In-Sample Optimization with MAE Scoring
 
-This module implements in-sample hyperparameter optimization using grid search
-with Mean Absolute Error (MAE) as the validation metric.
+This experiment conducts in-sample hyperparameter optimization using grid search
+with Mean Absolute Error (MAE) as the validation metric instead of MSE. Features
+perfect parallelization potential with alternative error metric.
+
+Threading Status: PERFECTLY_PARALLEL (Independent parameter combinations)
+Hardware Requirements: CPU_SUFFICIENT, CUDA_BENEFICIAL, MODERATE_MEMORY
+Performance Notes:
+    - MAE-based grid search: Perfect linear scaling across parameter combinations
+    - Independent evaluations: No coordination overhead
+    - Memory usage: Moderate (parameter grid storage)
+    - Alternative metric: MAE provides different optimization landscape than MSE
+
+Threading Implementation Status:
+    ❌ Sequential parameter combination evaluation (main bottleneck)
+    ❌ Sequential model processing
+    ❌ Single-threaded MAE computation
+
+Critical Parallelization Opportunities:
+    1. Independent parameter combination evaluation with MAE scoring
+    2. Concurrent model grid search (8x speedup)
+    3. Parallel MAE computation across parameter sets
+    4. Independent grid execution for different models
+
+Expected Performance Gains:
+    - Current: Sequential parameter evaluation
+    - With parameter parallelism: 8-32x speedup (perfect scaling)
+    - With model parallelism: Additional 4-8x speedup
+    - Combined: 32-256x speedup potential
 """
 import sys
 from pathlib import Path

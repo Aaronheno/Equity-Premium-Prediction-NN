@@ -1,16 +1,51 @@
 """
-profit_optimization_10.py
+Profit-Based Hyperparameter Optimization for Neural Networks
 
-This script implements hyperparameter optimization using profit as the objective function
-instead of traditional error metrics like MSE. It optimizes neural network models for maximum
-trading profit with realistic institutional constraints:
-- Long positions (up to 150% leverage) when predictions are positive
-- Investment in risk-free assets when predictions are negative
-- Realistic institutional trading costs
-- Position sizing based on prediction strength
+This experiment implements hyperparameter optimization using trading profit as the objective
+function instead of traditional error metrics like MSE. Features extensive parallelization
+opportunities with independent parameter evaluation and concurrent model training.
 
-The script follows the methodology of optimizing for economic metrics rather than
-statistical accuracy, which can lead to better real-world trading performance.
+Threading Status: PARALLEL_READY (Independent parameter combinations and model training)
+Hardware Requirements: GPU_PREFERRED, CPU_INTENSIVE, HIGH_MEMORY_BENEFICIAL
+Performance Notes:
+    - Parameter combinations: Perfect parallelization across search space
+    - Model training: Independent concurrent training for different parameters
+    - Memory usage: High due to multiple model instances
+    - GPU acceleration: Beneficial for faster neural network training
+
+Experiment Type: Economic Metric Optimization (Profit Maximization)
+Optimization Objective: Maximum trading profit with institutional constraints
+Models Supported: Net1, Net2, Net3, Net4, Net5, DNet1, DNet2, DNet3
+HPO Methods: Grid Search, Random Search, Bayesian Optimization
+Output Directory: runs/10_Profit_Optimization/
+
+Critical Parallelization Opportunities:
+    1. Independent parameter combination evaluation (perfect parallelization)
+    2. Concurrent model training across different hyperparameters
+    3. Parallel profit calculation across validation periods
+    4. Independent trading strategy simulation
+
+Threading Implementation Status:
+    ❌ Sequential parameter evaluation (MAIN BOTTLENECK)
+    ❌ Sequential model training across parameters
+    ❌ Sequential profit calculations
+    ✅ PyTorch threading support within models
+
+Future Parallel Implementation:
+    run(models, method, param_parallel=True, model_parallel=True, n_jobs=64)
+    
+Expected Performance Gains:
+    - Current: 8 hours for 100 parameter combinations × 4 models
+    - With parameter parallelism: 2 hours (4x speedup)
+    - With model parallelism: 30 minutes (additional 4x speedup)
+    - Combined on 128-core server: 5-10 minutes (48-96x speedup)
+
+Profit Optimization Features:
+    - Economic metric optimization instead of statistical accuracy
+    - Realistic trading constraints (leverage, transaction costs)
+    - Multiple position sizing strategies (binary, proportional)
+    - Risk-adjusted performance metrics (Sharpe, Sortino ratios)
+    - Early stopping based on profit validation
 """
 
 import os

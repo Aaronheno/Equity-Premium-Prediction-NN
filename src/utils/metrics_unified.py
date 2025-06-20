@@ -253,3 +253,103 @@ def scale_data(X, y):
     
     print("Data scaling complete.")
     return X_scaled, y_scaled, scaler_x, scaler_y
+
+# --- New CER Functions for OOS Evaluation ---
+
+def compute_CER_binary(actual_market_returns, predictions_log_ep, risk_free_rates, gamma=3):
+    """
+    Binary (0/1) Campbell-Thompson portfolio rule for CER calculation.
+    This is the approach used in the main paper results.
+    
+    Portfolio allocation rule:
+    - w_t = 1 if prediction > 0 (invest 100% in market)
+    - w_t = 0 if prediction <= 0 (invest 100% in risk-free)
+    
+    Args:
+        actual_market_returns (array-like): Actual market returns (not excess returns)
+        predictions_log_ep (array-like): Predicted log equity premiums
+        risk_free_rates (array-like): Risk-free rates (aligned with market returns)
+        gamma (float): Risk aversion coefficient (default: 3)
+        
+    Returns:
+        float: Annualized CER value
+    """
+    # Ensure numpy arrays
+    actual_market_returns = np.asarray(actual_market_returns).ravel()
+    predictions_log_ep = np.asarray(predictions_log_ep).ravel()
+    risk_free_rates = np.asarray(risk_free_rates).ravel()
+    
+    # Validate inputs
+    if not (len(actual_market_returns) == len(predictions_log_ep) == len(risk_free_rates)):
+        raise ValueError("All input arrays must have the same length.")
+    if len(actual_market_returns) == 0:
+        return np.nan
+    
+    # Binary weights based on prediction sign
+    weights = (predictions_log_ep > 0).astype(float)
+    
+    # Calculate portfolio returns
+    portfolio_returns = weights * actual_market_returns + (1 - weights) * risk_free_rates
+    
+    # Calculate portfolio excess returns
+    portfolio_excess_returns = portfolio_returns - risk_free_rates
+    
+    # Calculate mean and variance
+    mu_p = np.mean(portfolio_excess_returns)
+    sigma_p_sq = np.var(portfolio_excess_returns)
+    
+    # Calculate CER
+    cer = mu_p - (gamma / 2) * sigma_p_sq
+    
+    # Annualize (monthly to annual)
+    return cer * 12
+
+def compute_CER_proportional(actual_market_returns, predictions_log_ep, risk_free_rates, gamma=3):
+    """
+    Proportional Campbell-Thompson portfolio rule for CER calculation.
+    This is an alternative approach for robustness comparison.
+    
+    Portfolio allocation rule:
+    - w_t = (1/γ) * predicted_log_equity_premium
+    - w_t is clipped to [0, 1] (no leverage, no short-selling)
+    
+    Args:
+        actual_market_returns (array-like): Actual market returns (not excess returns)
+        predictions_log_ep (array-like): Predicted log equity premiums
+        risk_free_rates (array-like): Risk-free rates (aligned with market returns)
+        gamma (float): Risk aversion coefficient (default: 3)
+        
+    Returns:
+        float: Annualized CER value
+    """
+    # Ensure numpy arrays
+    actual_market_returns = np.asarray(actual_market_returns).ravel()
+    predictions_log_ep = np.asarray(predictions_log_ep).ravel()
+    risk_free_rates = np.asarray(risk_free_rates).ravel()
+    
+    # Validate inputs
+    if not (len(actual_market_returns) == len(predictions_log_ep) == len(risk_free_rates)):
+        raise ValueError("All input arrays must have the same length.")
+    if len(actual_market_returns) == 0:
+        return np.nan
+    
+    # Proportional weights based on predicted log equity premium
+    # Note: For small values, log equity premium ≈ excess return
+    weights = (1 / gamma) * predictions_log_ep
+    weights = np.clip(weights, 0, 1)
+    
+    # Calculate portfolio returns
+    portfolio_returns = weights * actual_market_returns + (1 - weights) * risk_free_rates
+    
+    # Calculate portfolio excess returns
+    portfolio_excess_returns = portfolio_returns - risk_free_rates
+    
+    # Calculate mean and variance
+    mu_p = np.mean(portfolio_excess_returns)
+    sigma_p_sq = np.var(portfolio_excess_returns)
+    
+    # Calculate CER
+    cer = mu_p - (gamma / 2) * sigma_p_sq
+    
+    # Annualize (monthly to annual)
+    return cer * 12

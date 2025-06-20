@@ -2,8 +2,9 @@ pandas
 numpy
 scikit-learn
 optuna
-skorch
+skorch>=0.15.0
 torch>=2.0
 joblib
 tqdm
 matplotlib   # Optuna visual grids
+openpyxl

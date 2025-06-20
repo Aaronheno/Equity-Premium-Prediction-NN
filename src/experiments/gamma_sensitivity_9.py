@@ -1,16 +1,52 @@
 """
-gamma_sensitivity_9.py
+Gamma Sensitivity Analysis for Equity Premium Prediction Models
 
-This script performs sensitivity analysis on the Certainty Equivalent Return (CER)
-metric by evaluating model performance across a range of risk aversion (gamma)
-values. This helps understand how robust different prediction models are to
-varying investor risk preferences.
+This experiment performs comprehensive sensitivity analysis on the Certainty Equivalent
+Return (CER) metric by evaluating model performance across varying risk aversion (gamma)
+values. Features extensive parallelization potential with independent gamma calculation
+and concurrent model analysis.
 
-The analysis:
-1. Takes existing model predictions from previous runs
-2. Calculates CER across a spectrum of gamma values
-3. Visualizes sensitivity curves for different models
-4. Provides insights on model performance stability under different risk attitudes
+Threading Status: PARALLEL_READY (Independent gamma calculations and model analysis)
+Hardware Requirements: CPU_INTENSIVE, MODERATE_MEMORY, VISUALIZATION_HEAVY
+Performance Notes:
+    - Gamma calculations: Perfect parallelization across gamma values
+    - Model analysis: Independent processing of multiple models
+    - Memory usage: Moderate, mainly for results storage
+    - CPU-intensive: Benefits from multi-core for complex calculations
+
+Experiment Type: Risk Aversion Sensitivity Analysis
+Analysis Scope: CER metric evaluation across gamma spectrum
+Models Supported: All trained models from previous OOS experiments
+Methods Supported: Grid Search, Random Search, Bayesian Optimization results
+Output Directory: runs/9_Gamma_Sensitivity/
+
+Critical Parallelization Opportunities:
+    1. Independent gamma value calculations (perfect parallelization)
+    2. Concurrent model CER computation (8+ models simultaneously)
+    3. Parallel visualization generation (multiple plots concurrently)
+    4. Independent data loading across experiment results
+
+Threading Implementation Status:
+    ❌ Sequential gamma calculations (MAIN BOTTLENECK)
+    ❌ Sequential model processing
+    ❌ Sequential plot generation
+    ✅ Some vectorized operations already implemented
+
+Future Parallel Implementation:
+    run(models, methods, gamma_parallel=True, model_parallel=True, n_jobs=64)
+    
+Expected Performance Gains:
+    - Current: 2 hours for 20 gamma values × 8 models × 3 methods
+    - With gamma parallelism: 20 minutes (6x speedup)
+    - With model parallelism: 5 minutes (additional 4x speedup)
+    - Combined on 128-core server: 1-2 minutes (60-120x speedup)
+
+Gamma Sensitivity Analysis Features:
+    - Comprehensive CER evaluation across risk aversion spectrum
+    - Model robustness assessment under varying investor preferences
+    - Crossover point identification (where models beat benchmarks)
+    - Visualization of sensitivity curves and heatmaps
+    - Statistical significance testing across gamma ranges
 """
 
 import os

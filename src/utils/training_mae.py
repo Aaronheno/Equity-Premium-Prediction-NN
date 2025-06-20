@@ -1,8 +1,33 @@
 """
-Hyperparameter optimization utilities using Mean Absolute Error (MAE) as the scoring function.
+MAE-Based Hyperparameter Optimization Utilities
 
-This module contains functions for grid search, random search, and Bayesian optimization
-with MAE as the validation metric.
+This module provides hyperparameter optimization functions using Mean Absolute Error (MAE)
+as the primary scoring metric instead of MSE. Features moderate parallelization potential
+with independent parameter evaluation and concurrent model training.
+
+Threading Status: PARALLEL_READY (Independent parameter combinations)
+Hardware Requirements: CPU_INTENSIVE, CUDA_BENEFICIAL, MODERATE_MEMORY
+Performance Notes:
+    - Parameter evaluation: Independent processing across search space
+    - MAE computation: Thread-safe, can be parallelized
+    - Memory usage: Moderate due to multiple model instances
+    - Training: Benefits from GPU acceleration
+
+Threading Implementation Status:
+    ❌ Sequential parameter evaluation (main bottleneck)
+    ❌ Sequential model training across parameters
+    ✅ Vectorized MAE computation (some optimization)
+
+Critical Parallelization Opportunities:
+    1. Parallel parameter combination evaluation
+    2. Concurrent model training for different hyperparameters
+    3. Batch-parallel MAE computation across validation sets
+    4. Independent optimization method execution (grid/random/bayes)
+
+Expected Performance Gains:
+    - Current: Sequential parameter evaluation
+    - With parallelization: 4-8x speedup potential
+    - MAE vs MSE: Similar computational complexity, different optimization landscape
 """
 import numpy as np
 import torch

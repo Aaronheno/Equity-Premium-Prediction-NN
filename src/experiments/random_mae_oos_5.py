@@ -1,8 +1,34 @@
 """
-Out-of-sample evaluation using random search with MAE as the scoring function.
+Random Search Out-of-Sample Evaluation with MAE-Optimized Parameters
 
-This module implements out-of-sample evaluation using random search hyperparameters
-optimized with Mean Absolute Error (MAE) as the validation metric.
+This experiment conducts out-of-sample evaluation using hyperparameters optimized via
+random search with Mean Absolute Error (MAE) scoring. Features similar parallelization
+potential as standard OOS evaluation with MAE-optimized parameters.
+
+Threading Status: PARALLEL_READY (Independent time steps with coordination needs)
+Hardware Requirements: CPU_SUFFICIENT, CUDA_BENEFICIAL, HIGH_MEMORY_PREFERRED
+Performance Notes:
+    - MAE-optimized parameters: Random search may find robust parameter combinations
+    - Time step independence: Each period trainable in parallel with coordination
+    - Memory usage: High due to expanding window model storage
+    - Alternative optimization: MAE random search provides diverse parameter exploration
+
+Threading Implementation Status:
+    ❌ Sequential time step processing (main bottleneck)
+    ❌ Sequential model evaluation across time periods
+    ❌ Single-threaded expanding window training
+
+Critical Parallelization Opportunities:
+    1. Independent time step model training with MAE-optimized parameters
+    2. Concurrent model evaluation across time periods (8x speedup)
+    3. Parallel expanding window computation
+    4. Independent OOS evaluation for different models
+
+Expected Performance Gains:
+    - Current: Sequential time step processing
+    - With time step parallelism: 2-4x speedup (coordination overhead)
+    - With model parallelism: Additional 4-8x speedup
+    - Combined: 8-32x speedup potential
 """
 import sys
 from pathlib import Path

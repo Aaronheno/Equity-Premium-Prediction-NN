@@ -1,8 +1,50 @@
 """
-Expanding window implementation with configurable window sizes.
+Expanding Window Analysis for Equity Premium Prediction
 
-This module provides a flexible expanding window approach that can be used with
-different hyperparameter optimization methods (Grid Search, Random Search, Bayesian).
+This experiment conducts expanding window out-of-sample evaluation with configurable
+minimum window sizes. Features dual-level parallelization opportunities with
+independent window processing and concurrent model optimization.
+
+Threading Status: PARALLEL_READY (Window-level and model-level parallelism)
+Hardware Requirements: CPU_INTENSIVE, CUDA_BENEFICIAL, HIGH_MEMORY_PREFERRED
+Performance Notes:
+    - Window parallelism: 2-4x speedup (multiple minimum window sizes)
+    - Model parallelism: 8x speedup (8 models per window)
+    - Memory usage: High due to expanding windows
+    - CPU-intensive: Benefits from multi-core systems
+
+Experiment Type: Expanding Window Out-of-Sample Analysis
+Window Types: Minimum window sizes with continuous expansion
+Models Supported: Net1, Net2, Net3, Net4, Net5, DNet1, DNet2, DNet3
+HPO Methods: Grid Search, Random Search, Bayesian Optimization
+Output Directory: runs/4_Expanding_Window_{method}_{timestamp}/
+
+Critical Parallelization Opportunities:
+    1. Independent window size processing (2-4x speedup)
+    2. Model HPO within each window (8x speedup per window)
+    3. Concurrent time period evaluation within windows
+    4. Parallel metrics computation across windows and models
+
+Threading Implementation Status:
+    ❌ Sequential window processing (MAIN BOTTLENECK)
+    ❌ Sequential model processing within windows
+    ❌ Sequential time period evaluation
+    ❌ Sequential metrics computation
+
+Future Parallel Implementation:
+    run_expanding_window(window_sizes, models, parallel_windows=True, parallel_models=True)
+    
+Expected Performance Gains:
+    - Current: Sequential processing across all dimensions
+    - With window parallelism: 2.7x speedup
+    - With model parallelism: Additional 7x speedup
+    - Combined on high-core systems: Up to 60-160x speedup
+
+Expanding Window Advantages:
+    - Captures increasing data availability over time
+    - More stable than rolling windows for recent periods
+    - Better long-term trend detection
+    - Realistic real-world forecasting scenario
 """
 import sys
 from pathlib import Path

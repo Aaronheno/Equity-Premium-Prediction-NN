@@ -1,8 +1,34 @@
 """
-Bayesian hyperparameter optimization using MAE as the scoring function (in-sample).
+Bayesian In-Sample Optimization with MAE Scoring
 
-This module implements in-sample hyperparameter optimization using Bayesian optimization
-with Mean Absolute Error (MAE) as the validation metric.
+This experiment conducts in-sample hyperparameter optimization using Bayesian optimization
+with Mean Absolute Error (MAE) as the validation metric instead of MSE. Features similar
+parallelization potential as standard Bayesian optimization with alternative error metric.
+
+Threading Status: PARALLEL_READY (Independent trials with coordination overhead)
+Hardware Requirements: CPU_REQUIRED, CUDA_BENEFICIAL, HIGH_MEMORY_PREFERRED
+Performance Notes:
+    - MAE-based trials: Near-linear scaling with coordination overhead
+    - Model parallelism: 8x speedup (concurrent model optimization)
+    - Memory usage: High due to Optuna study storage
+    - Alternative metric: MAE can provide different optimization landscapes
+
+Threading Implementation Status:
+    ❌ Sequential model processing (main bottleneck)
+    ✅ Optuna trials parallelizable (coordination overhead)
+    ❌ Sequential MAE computation across models
+
+Critical Parallelization Opportunities:
+    1. Independent Bayesian trial evaluation with MAE scoring
+    2. Concurrent model HPO (8x speedup)
+    3. Parallel MAE computation across validation sets
+    4. Independent study execution for different models
+
+Expected Performance Gains:
+    - Current: Sequential model optimization
+    - With trial parallelism: 2-3x speedup (coordination overhead)
+    - With model parallelism: Additional 4-8x speedup
+    - Combined: 8-24x speedup potential
 """
 import sys
 from pathlib import Path

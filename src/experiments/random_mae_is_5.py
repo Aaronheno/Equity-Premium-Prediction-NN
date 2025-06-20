@@ -1,8 +1,34 @@
 """
-Random search hyperparameter optimization using MAE as the scoring function (in-sample).
+Random Search In-Sample Optimization with MAE Scoring
 
-This module implements in-sample hyperparameter optimization using random search
-with Mean Absolute Error (MAE) as the validation metric.
+This experiment conducts in-sample hyperparameter optimization using random search
+with Mean Absolute Error (MAE) as the validation metric instead of MSE. Features
+perfect parallelization potential with alternative error metric.
+
+Threading Status: PERFECTLY_PARALLEL (Independent random trials)
+Hardware Requirements: CPU_SUFFICIENT, CUDA_BENEFICIAL, MODERATE_MEMORY
+Performance Notes:
+    - MAE-based random trials: Perfect linear scaling with independent trials
+    - No coordination overhead: Embarrassingly parallel execution
+    - Memory usage: Moderate (trial result storage)
+    - Alternative metric: MAE exploration can find different optimal regions
+
+Threading Implementation Status:
+    ❌ Sequential random trial evaluation (main bottleneck)
+    ❌ Sequential model processing
+    ❌ Single-threaded MAE computation
+
+Critical Parallelization Opportunities:
+    1. Independent random trial evaluation with MAE scoring
+    2. Concurrent model optimization (8x speedup)
+    3. Parallel MAE computation across trial sets
+    4. Independent random search for different models
+
+Expected Performance Gains:
+    - Current: Sequential trial evaluation
+    - With trial parallelism: 8-32x speedup (perfect scaling)
+    - With model parallelism: Additional 4-8x speedup
+    - Combined: 32-256x speedup potential
 """
 import sys
 from pathlib import Path

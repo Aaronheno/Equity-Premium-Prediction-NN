@@ -1,8 +1,50 @@
 """
-Rolling window implementation for equity premium prediction models.
+Rolling Window Analysis for Equity Premium Prediction
 
-This module provides a flexible rolling window approach that can be used with
-different hyperparameter optimization methods (Grid Search, Random Search, Bayesian).
+This experiment conducts rolling window out-of-sample evaluation with configurable
+window sizes and HPO methods. Designed for parallel window processing with
+concurrent model evaluation across multiple time periods.
+
+Threading Status: PARALLEL_READY (Window-level and model-level parallelism)
+Hardware Requirements: CPU_INTENSIVE, CUDA_BENEFICIAL, HIGH_MEMORY_PREFERRED
+Performance Notes:
+    - Window parallelism: 3-5x speedup (multiple window sizes simultaneously)
+    - Model parallelism: 8x speedup (8 models per window)
+    - Memory usage: Scales with window count and model complexity
+    - CPU-intensive: Benefits significantly from multi-core systems
+
+Experiment Type: Rolling Window Out-of-Sample Analysis
+Window Sizes: Configurable (default: 5, 10, 20 years)
+Models Supported: Net1, Net2, Net3, Net4, Net5, DNet1, DNet2, DNet3
+HPO Methods: Grid Search, Random Search, Bayesian Optimization
+Output Directory: runs/3_Rolling_Window_Analysis/
+
+Critical Parallelization Opportunities:
+    1. Independent window size processing (perfect parallelization)
+    2. Model HPO within each window (8x speedup per window)
+    3. Concurrent time period evaluation within windows
+    4. Parallel metrics computation across windows and models
+
+Threading Implementation Status:
+    ❌ Sequential window processing (MAIN BOTTLENECK)
+    ❌ Sequential model processing within windows
+    ❌ Sequential time period evaluation
+    ❌ Sequential metrics computation
+
+Future Parallel Implementation:
+    run(window_sizes, models, parallel_windows=True, parallel_models=True)
+    
+Expected Performance Gains:
+    - Current: Sequential processing across all dimensions
+    - With window parallelism: 3x speedup
+    - With model parallelism: Additional 8x speedup  
+    - Combined on high-core systems: Up to 72-144x speedup
+
+Rolling Window Advantages:
+    - Consistent training set size across time
+    - Captures temporal model performance changes
+    - Evaluates robustness to different market regimes
+    - Provides confidence intervals for performance metrics
 """
 import sys
 from pathlib import Path

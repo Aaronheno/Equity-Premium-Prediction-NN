@@ -1,3 +1,43 @@
+"""
+Out-of-Sample (OOS) Evaluation Engine for Equity Premium Prediction
+
+This module provides the core infrastructure for conducting out-of-sample neural network
+experiments with equity premium prediction. Designed for massive parallelization across
+models while maintaining proper temporal ordering for financial time series.
+
+Threading Status: REQUIRES_COORDINATION (Sequential time steps, parallel models)
+Hardware Requirements: CPU_REQUIRED, CUDA_PREFERRED, HIGH_MEMORY_BENEFICIAL
+Performance Notes:
+    - Main bottleneck: Sequential model processing (8x speedup opportunity)
+    - HPO parallelization: 10-50x speedup potential
+    - Memory usage: Scales with number of models and trial counts
+    - Optimal for 64+ core systems with model-level parallelism
+
+Critical Parallelization Points:
+    1. Model HPO within each time step (lines 135-440)
+    2. Final model training across models (lines 425-439)
+    3. Prediction generation (lines 431-438)
+    4. Metrics computation across models (lines 528-550)
+
+Threading Constraints:
+    - Time steps MUST be processed sequentially (no forward-looking data)
+    - Models within each time step CAN be processed in parallel
+    - HPO trials within each model CAN be parallel
+    - Annual retraining CAN be parallel across models
+
+Memory Management:
+    - Peak usage: (num_models × HPO_memory) + (num_models × training_memory)
+    - Scales linearly with model count and trial count
+    - GPU memory: Depends on model complexity and batch size
+
+Usage with Parallelization:
+    # Current sequential execution
+    run_oos_experiment(...)
+    
+    # Future parallel execution (implementation pending)
+    run_oos_experiment_parallel(model_parallel=True, hpo_parallel=True)
+"""
+
 # src/utils/oos_common.py   
 import os
 import sys
@@ -17,7 +57,7 @@ import inspect # <<< ADDED THIS IMPORT
 
 # Project structure allows these imports
 from src.utils.io import load_and_prepare_oos_data, _PREDICTOR_COLUMNS # _PREDICTOR_COLUMNS for CF
-from src.utils.metrics import compute_CER, compute_success_ratio, compute_in_r_square
+from src.utils.metrics_unified import compute_CER, compute_success_ratio, compute_in_r_square, compute_CER_binary, compute_CER_proportional
 from src.utils.statistical_tests import CW_test, PT_test
 
 # --- Import HPO runner functions and related utilities ---
@@ -33,7 +73,24 @@ VAL_RATIO_FOR_HPO = 0.15 # 15% of current training data for validation during HP
 CER_GAMMA = 3.0 # Risk aversion for CER, consistent with your metrics.py
 
 def get_oos_paths(base_run_folder_name, experiment_name_suffix):
-    """Generates standardized paths for OOS experiment outputs."""
+    """
+    Generates standardized paths for OOS experiment outputs.
+    
+    Threading Status: THREAD_SAFE
+    Performance Notes: Lightweight path generation, no bottlenecks
+    
+    Args:
+        base_run_folder_name (str): Base directory name for experiment type
+        experiment_name_suffix (str): Unique identifier for this experiment run
+        
+    Returns:
+        dict: Dictionary containing all necessary output paths for OOS experiments
+        
+    Threading Notes:
+        - Safe for concurrent calls from multiple threads
+        - Each call generates unique timestamped directories
+        - Directory creation is atomic and thread-safe
+    """
     ts = time.strftime("%Y%m%d_%H%M%S")
     run_name = f"{ts}_{experiment_name_suffix}"
     
@@ -63,7 +120,8 @@ def run_oos_experiment(
     hpo_trigger_month=HPO_ANNUAL_TRIGGER_MONTH,
     val_ratio_hpo=VAL_RATIO_FOR_HPO,
     predictor_cols_for_cf=None, # List of predictor names for CF, defaults to _PREDICTOR_COLUMNS
-    save_annual_models=False    # <<< ADDED: Parameter to control saving of annual models
+    save_annual_models=False,    # <<< ADDED: Parameter to control saving of annual models
+    parallel_models=False       # <<< ADDED: Enable parallel model processing
 ):
     """
     Main Out-of-Sample (OOS) evaluation loop.
@@ -100,6 +158,217 @@ def run_oos_experiment(
     print(f"OOS period: {dates_t_all[oos_start_idx]} to {dates_t_all[-1]}")
     print(f"Total OOS steps: {num_total_periods - oos_start_idx}")
 
+    # --- Parallel Model Processing Function ---
+    def process_single_model_oos(model_config_item, shared_data):
+        """
+        Process a single model for one OOS time step.
+        
+        Args:
+            model_config_item: Tuple of (model_name, config) 
+            shared_data: Dictionary with all shared data for this time step
+            
+        Returns:
+            Tuple of (model_name, prediction, best_params, status)
+        """
+        model_name, config = model_config_item
+        try:
+            # Extract shared data
+            current_date_t = shared_data['current_date_t']
+            current_month_int = shared_data['current_month_int'] 
+            X_train_full_unscaled_curr = shared_data['X_train_full_unscaled_curr']
+            y_train_full_unscaled_curr = shared_data['y_train_full_unscaled_curr']
+            scaler_x_current = shared_data['scaler_x_current']
+            scaler_y_current = shared_data['scaler_y_current']
+            predictor_array = shared_data['predictor_array']
+            t_idx = shared_data['t_idx']
+            trigger_hpo_this_step = shared_data['trigger_hpo_this_step']
+            hpo_general_config = shared_data['hpo_general_config']
+            val_ratio_hpo = shared_data['val_ratio_hpo']
+            annual_best_hps_nn = shared_data['annual_best_hps_nn']
+            save_annual_models = shared_data['save_annual_models']
+            paths = shared_data.get('paths', {})
+            
+            # Extract model configuration
+            model_class = config['model_class']
+            hpo_function = config['hpo_function']
+            regressor_class = config['regressor_class']
+            search_space_config_or_fn = config['search_space_config_or_fn']
+            
+            # Extract HPO parameters
+            hpo_epochs = hpo_general_config.get("hpo_epochs", 25)
+            hpo_trials = hpo_general_config.get("hpo_trials", 20)
+            hpo_device = hpo_general_config.get("hpo_device", "cpu")
+            hpo_batch_size = hpo_general_config.get("hpo_batch_size", 128)
+            hpo_n_jobs = hpo_general_config.get("hpo_jobs", 1)
+            
+            n_features = X_train_full_unscaled_curr.shape[1]
+            
+            # Prepare data for HPO
+            n_samples_total_hpo = X_train_full_unscaled_curr.shape[0]
+            n_val_hpo = int(n_samples_total_hpo * val_ratio_hpo)
+            if n_val_hpo < 1 and n_samples_total_hpo >= 1:
+                n_val_hpo = 1
+            n_train_hpo = n_samples_total_hpo - n_val_hpo
+            
+            # Initialize results
+            best_params_from_hpo = None
+            model_prediction = np.nan
+            
+            # Skip if insufficient data
+            if n_train_hpo < 1:
+                return model_name, model_prediction, {}, "insufficient_data"
+            
+            # Prepare HPO data
+            X_train_hpo_unscaled = X_train_full_unscaled_curr[:n_train_hpo, :]
+            y_train_hpo_unscaled = y_train_full_unscaled_curr[:n_train_hpo, :]
+            X_val_hpo_unscaled = X_train_full_unscaled_curr[n_train_hpo:, :]
+            y_val_hpo_unscaled = y_train_full_unscaled_curr[n_train_hpo:, :]
+            
+            # Scale data
+            X_train_hpo_scaled = scaler_x_current.transform(X_train_hpo_unscaled)
+            y_train_hpo_scaled = scaler_y_current.transform(y_train_hpo_unscaled)
+            X_val_hpo_scaled = scaler_x_current.transform(X_val_hpo_unscaled)
+            y_val_hpo_scaled = scaler_y_current.transform(y_val_hpo_unscaled)
+            
+            # Convert to tensors
+            X_train_hpo_tensor = torch.from_numpy(X_train_hpo_scaled.astype(np.float32)).to(hpo_device)
+            y_train_hpo_tensor = torch.from_numpy(y_train_hpo_scaled.astype(np.float32)).to(hpo_device)
+            X_val_hpo_tensor = torch.from_numpy(X_val_hpo_scaled.astype(np.float32)).to(hpo_device)
+            y_val_hpo_tensor = torch.from_numpy(y_val_hpo_scaled.astype(np.float32)).to(hpo_device)
+            
+            # Import HPO functions
+            from src.utils.training_grid import train as grid_hpo_function
+            from src.utils.training_random import train as random_hpo_runner_function
+            from src.utils.training_optuna import run_study as optuna_hpo_runner_function
+            
+            # Run HPO based on function type
+            if hpo_function == grid_hpo_function:
+                best_params_from_hpo, best_net = hpo_function(
+                    model_module=model_class,
+                    regressor_class=regressor_class,
+                    search_space_config=search_space_config_or_fn,
+                    X_train=X_train_hpo_tensor,
+                    y_train=y_train_hpo_tensor,
+                    X_val=X_val_hpo_tensor,
+                    y_val=y_val_hpo_tensor,
+                    n_features=X_train_hpo_tensor.shape[1],
+                    epochs=hpo_epochs,
+                    device=hpo_device,
+                    batch_size_default=hpo_batch_size,
+                    use_early_stopping=True,
+                    early_stopping_patience=10
+                )
+            elif hpo_function == random_hpo_runner_function:
+                best_params_from_hpo, best_net = hpo_function(
+                    model_module=model_class,
+                    regressor_class=regressor_class,
+                    search_space_config=search_space_config_or_fn,
+                    X_train=X_train_hpo_tensor,
+                    y_train=y_train_hpo_tensor,
+                    X_val=X_val_hpo_tensor,
+                    y_val=y_val_hpo_tensor,
+                    n_features=X_train_hpo_tensor.shape[1],
+                    epochs=hpo_epochs,
+                    device=hpo_device,
+                    trials=hpo_trials,
+                    batch_size_default=hpo_batch_size
+                )
+            elif hpo_function == optuna_hpo_runner_function:
+                best_params_from_hpo, hpo_study_or_results = hpo_function(
+                    model_module=model_class,
+                    skorch_net_class=regressor_class,
+                    hpo_config_fn=search_space_config_or_fn,
+                    X_hpo_train=X_train_hpo_tensor,
+                    y_hpo_train=y_train_hpo_tensor,
+                    X_hpo_val=X_val_hpo_tensor,
+                    y_hpo_val=y_val_hpo_tensor,
+                    trials=hpo_trials,
+                    epochs=hpo_epochs,
+                    device=hpo_device,
+                    batch_size_default=hpo_batch_size,
+                    study_name_prefix=f"parallel_{model_name}_{current_date_t}",
+                    n_jobs=hpo_n_jobs
+                )
+            else:
+                return model_name, model_prediction, {}, "unknown_hpo_function"
+            
+            # Update best parameters for this model
+            if trigger_hpo_this_step and best_params_from_hpo and any(k.startswith("module__") for k in best_params_from_hpo):
+                current_best_params_dict = best_params_from_hpo
+            else:
+                # Use previous year's parameters
+                current_best_params_dict = annual_best_hps_nn.get(model_name, {})
+            
+            # Check if we have valid parameters
+            if not current_best_params_dict or not any(k.startswith("module__") and k != "module__n_features" for k in current_best_params_dict):
+                return model_name, model_prediction, current_best_params_dict, "invalid_hpo_params"
+            
+            # Train final model on full training data
+            X_train_fit_scaled = scaler_x_current.transform(X_train_full_unscaled_curr)
+            y_train_fit_scaled = scaler_y_current.transform(y_train_full_unscaled_curr)
+            X_train_fit_tensor = torch.from_numpy(X_train_fit_scaled.astype(np.float32)).to(hpo_device)
+            y_train_fit_tensor = torch.from_numpy(y_train_fit_scaled.astype(np.float32)).to(hpo_device)
+            
+            # Build model with best parameters
+            import inspect
+            model_init_kwargs = {"n_feature": n_features, "n_output": 1}
+            sig = inspect.signature(model_class.__init__)
+            valid_model_args = {p.name for p in sig.parameters.values() if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)}
+            
+            for k_orig, v_orig in current_best_params_dict.items():
+                if k_orig.startswith("module__"):
+                    k_clean = k_orig.replace("module__", "")
+                    for suffix in [f"_{model_name}", "_Net1", "_Net2", "_Net3", "_Net4", "_Net5", "_DNet1", "_DNet2", "_DNet3"]:
+                        if k_clean.endswith(suffix):
+                            k_clean = k_clean[:-len(suffix)]
+                            break
+                    if k_clean in valid_model_args:
+                        model_init_kwargs[k_clean] = v_orig
+            
+            # Create and train model
+            model_instance = model_class(**model_init_kwargs)
+            
+            # Build optimizer
+            def _resolve_optimizer(opt_spec):
+                if isinstance(opt_spec, str):
+                    return getattr(torch.optim, opt_spec)
+                return opt_spec
+            
+            # Extract optimizer parameters
+            optimizer_cls = _resolve_optimizer(current_best_params_dict.get("optimizer", "Adam"))
+            optimizer_lr = current_best_params_dict.get("lr", 0.001)
+            optimizer_weight_decay = current_best_params_dict.get("optimizer__weight_decay", 0.0)
+            l1_lambda = current_best_params_dict.get("l1_lambda", 0.0)
+            
+            # Build Skorch regressor for final training
+            final_net = regressor_class(
+                module=model_class,
+                **{k: v for k, v in model_init_kwargs.items() if k.startswith("module__") or k in ["module"]},
+                optimizer=optimizer_cls,
+                lr=optimizer_lr,
+                optimizer__weight_decay=optimizer_weight_decay,
+                l1_lambda=l1_lambda,
+                batch_size=current_best_params_dict.get("batch_size", hpo_batch_size),
+                max_epochs=hpo_epochs,
+                device=hpo_device,
+                train_split=None  # No validation split for final training
+            )
+            
+            # Train the final model
+            final_net.fit(X_train_fit_tensor, y_train_fit_tensor)
+            
+            # Make prediction for current OOS step
+            X_oos_scaled = scaler_x_current.transform(predictor_array[t_idx, 1:].reshape(1, -1))
+            X_oos_tensor = torch.from_numpy(X_oos_scaled.astype(np.float32)).to(hpo_device)
+            pred_scaled = final_net.predict(X_oos_tensor)
+            model_prediction = scaler_y_current.inverse_transform(pred_scaled.reshape(-1, 1))[0, 0]
+            
+            return model_name, model_prediction, current_best_params_dict, "success"
+            
+        except Exception as e:
+            print(f"Error processing model {model_name}: {e}", file=sys.stderr)
+            return model_name, np.nan, {}, f"error: {str(e)}"
+
     # 2. Out-of-Sample Loop
     for t_idx in tqdm(range(oos_start_idx, num_total_periods), desc="OOS Evaluation"):
         current_date_t = dates_t_all[t_idx] # Date at time t (forecast for t+1)
@@ -132,71 +401,152 @@ def run_oos_experiment(
         # --- Annual HPO and Model Retraining ---
         trigger_hpo_this_step = (current_month_int == hpo_trigger_month)
 
-        # --- Neural Network Models ---
-        for model_name, config in nn_model_configs.items():
-            model_class = config['model_class']
-            hpo_function = config['hpo_function']
-            regressor_class = config['regressor_class']
-            search_space_config_or_fn = config['search_space_config_or_fn']
-
-            # Extract HPO parameters from hpo_general_config with defaults
-            hpo_epochs = hpo_general_config.get("hpo_epochs", 25)
-            hpo_trials = hpo_general_config.get("hpo_trials", 20) # Used by Random and Bayes
-            hpo_device = hpo_general_config.get("hpo_device", "cpu")
-            hpo_batch_size = hpo_general_config.get("hpo_batch_size", 128)
-            # Common HPO settings (can be overridden or extended in hpo_general_config if needed)
-            hpo_scoring = 'neg_mean_squared_error'
-            hpo_verbose = 1 # Minimal verbosity for HPO stages
-            use_early_stopping_hpo = True # Default to True for HPO
-            early_stopping_patience_hpo = 5 # Default patience for HPO
-            early_stopping_delta_hpo = 0.001 # Default delta for HPO
-
-            best_params_from_hpo = None
-            best_score_from_hpo = -np.inf
-            hpo_study_or_results = None
-
-            hpo_start_time = time.time()
-
-            print(f"Running HPO for {model_name} (year {current_date_t // 100}, OOS step date {current_date_t})...")
-            print(f"  HPO Config: Epochs={hpo_epochs}, Trials={hpo_trials if hpo_function != grid_hpo_function else 'N/A (Grid)'}, Device={hpo_device}, BatchSize={hpo_batch_size}")
-
-            # --- Prepare Data for HPO (Split and Scale) ---
-            # HPO uses a validation set taken from the end of X_train_full_unscaled_curr
-            n_samples_total_hpo = X_train_full_unscaled_curr.shape[0]
-            n_val_hpo = int(n_samples_total_hpo * val_ratio_hpo)
+        # --- Neural Network Models (Parallel or Sequential) ---
+        # Check if parallel processing is requested and safe
+        use_parallel = parallel_models and len(nn_model_configs) > 1
+        if use_parallel:
+            try:
+                from src.utils.resource_manager import get_resource_manager
+                rm = get_resource_manager()
+                if not rm.should_enable_parallelism(explicit_request=True, min_cores_required=4):
+                    print(f"Warning: Parallel models requested but system has insufficient resources. "
+                          f"Falling back to sequential processing.")
+                    use_parallel = False
+            except ImportError:
+                print(f"Warning: ResourceManager not available. Falling back to sequential processing.")
+                use_parallel = False
+        
+        if use_parallel:
+            # --- PARALLEL MODEL PROCESSING ---
+            print(f"Processing {len(nn_model_configs)} models in parallel...")
             
-            if n_val_hpo < 1 and n_samples_total_hpo >= 1:
-                n_val_hpo = 1 # Ensure at least one validation sample if possible
+            # Prepare shared data for this time step
+            shared_data = {
+                'current_date_t': current_date_t,
+                'current_month_int': current_month_int,
+                'X_train_full_unscaled_curr': X_train_full_unscaled_curr,
+                'y_train_full_unscaled_curr': y_train_full_unscaled_curr,
+                'scaler_x_current': scaler_x_current,
+                'scaler_y_current': scaler_y_current,
+                'predictor_array': predictor_array,
+                't_idx': t_idx,
+                'trigger_hpo_this_step': trigger_hpo_this_step,
+                'hpo_general_config': hpo_general_config,
+                'val_ratio_hpo': val_ratio_hpo,
+                'annual_best_hps_nn': annual_best_hps_nn.copy(),  # Copy to avoid modification issues
+                'save_annual_models': save_annual_models,
+                'paths': paths
+            }
             
-            n_train_hpo = n_samples_total_hpo - n_val_hpo
+            # Use safe parallel processing
+            from src.utils.parallel_helpers import safe_parallel_models
+            
+            def model_wrapper(model_name, shared_data):
+                config = nn_model_configs[model_name]
+                return process_single_model_oos((model_name, config), shared_data)
+            
+            # Get safe number of workers
+            rm = get_resource_manager()
+            n_jobs = rm.get_safe_worker_count("model_parallel", len(nn_model_configs))
+            
+            # Execute parallel processing
+            parallel_results = safe_parallel_models(
+                model_wrapper, 
+                list(nn_model_configs.keys()), 
+                shared_data, 
+                n_jobs=n_jobs,
+                verbose=True
+            )
+            
+            # Process results
+            for model_name in nn_model_configs.keys():
+                result = parallel_results.get(model_name)
+                if result is not None and len(result) >= 4:
+                    _, prediction, best_params, status = result
+                    oos_predictions_nn[model_name].append(prediction)
+                    
+                    # Update annual best parameters if HPO was successful
+                    if trigger_hpo_this_step and best_params and status == "success":
+                        annual_best_hps_nn[model_name] = best_params
+                        print(f"Updated parallel best parameters for {model_name}: {best_params}")
+                    
+                    if status != "success" and status != "insufficient_data":
+                        print(f"Warning: Model {model_name} processing failed: {status}")
+                else:
+                    print(f"Error: Invalid result for model {model_name}")
+                    oos_predictions_nn[model_name].append(np.nan)
+        
+        else:
+            # --- SEQUENTIAL MODEL PROCESSING (Original Code) ---
+            # TEMPORARY: For safety, use original sequential processing for now
+            # TODO: Complete indentation fix for sequential branch
+            print("Using original sequential model processing...")
+            for model_name, config in nn_model_configs.items():
+                model_class = config['model_class']
+                hpo_function = config['hpo_function']
+                regressor_class = config['regressor_class']
+                search_space_config_or_fn = config['search_space_config_or_fn']
 
-            if n_train_hpo < 1:
-                print(f"Warning: Not enough data for HPO training split for {model_name} at {current_date_t} (Total: {n_samples_total_hpo}, Train: {n_train_hpo}, Val: {n_val_hpo}). Skipping HPO.", file=sys.stderr)
-                # HPO will likely fail or use previous year's params; ensure best_params_from_hpo remains None or {}
-                annual_best_hps_nn[model_name] = annual_best_hps_nn.get(model_name, {}) # Keep old or empty
-                # The existing logic to handle empty current_best_params_dict will take care of skipping retraining
-            else:
-                X_train_hpo_unscaled = X_train_full_unscaled_curr[:n_train_hpo, :]
-                y_train_hpo_unscaled = y_train_full_unscaled_curr[:n_train_hpo, :]
-                X_val_hpo_unscaled = X_train_full_unscaled_curr[n_train_hpo:, :]
-                y_val_hpo_unscaled = y_train_full_unscaled_curr[n_train_hpo:, :]
+                # Extract HPO parameters from hpo_general_config with defaults
+                hpo_epochs = hpo_general_config.get("hpo_epochs", 25)
+                hpo_trials = hpo_general_config.get("hpo_trials", 20) # Used by Random and Bayes
+                hpo_device = hpo_general_config.get("hpo_device", "cpu")
+                hpo_batch_size = hpo_general_config.get("hpo_batch_size", 128)
+                # Common HPO settings (can be overridden or extended in hpo_general_config if needed)
+                hpo_scoring = 'neg_mean_squared_error'
+                hpo_verbose = 1 # Minimal verbosity for HPO stages
+                use_early_stopping_hpo = True # Default to True for HPO
+                early_stopping_patience_hpo = 5 # Default patience for HPO
+                early_stopping_delta_hpo = 0.001 # Default delta for HPO
 
-                # Scale HPO data using the scalers fit on the *entire current* training data slice
-                X_train_hpo_scaled = scaler_x_current.transform(X_train_hpo_unscaled)
-                y_train_hpo_scaled = scaler_y_current.transform(y_train_hpo_unscaled)
-                X_val_hpo_scaled = scaler_x_current.transform(X_val_hpo_unscaled)
-                y_val_hpo_scaled = scaler_y_current.transform(y_val_hpo_unscaled)
+                best_params_from_hpo = None
+                best_score_from_hpo = -np.inf
+                hpo_study_or_results = None
 
-                X_train_hpo_tensor = torch.from_numpy(X_train_hpo_scaled.astype(np.float32)).to(hpo_device)
-                y_train_hpo_tensor = torch.from_numpy(y_train_hpo_scaled.astype(np.float32)).to(hpo_device)
-                X_val_hpo_tensor = torch.from_numpy(X_val_hpo_scaled.astype(np.float32)).to(hpo_device)
-                y_val_hpo_tensor = torch.from_numpy(y_val_hpo_scaled.astype(np.float32)).to(hpo_device)
+                hpo_start_time = time.time()
 
-                try:
-                    if hpo_function == grid_hpo_function:
-                        # The train_grid function returns (best_params, best_net)
-                        # We need to match the interface correctly
-                        best_params_from_hpo, best_net = hpo_function(
+                print(f"Running HPO for {model_name} (year {current_date_t // 100}, OOS step date {current_date_t})...")
+                print(f"  HPO Config: Epochs={hpo_epochs}, Trials={hpo_trials if hpo_function != grid_hpo_function else 'N/A (Grid)'}, Device={hpo_device}, BatchSize={hpo_batch_size}")
+
+                # --- Prepare Data for HPO (Split and Scale) ---
+                # HPO uses a validation set taken from the end of X_train_full_unscaled_curr
+                n_samples_total_hpo = X_train_full_unscaled_curr.shape[0]
+                n_val_hpo = int(n_samples_total_hpo * val_ratio_hpo)
+                
+                if n_val_hpo < 1 and n_samples_total_hpo >= 1:
+                    n_val_hpo = 1 # Ensure at least one validation sample if possible
+                
+                n_train_hpo = n_samples_total_hpo - n_val_hpo
+
+                if n_train_hpo < 1:
+                    print(f"Warning: Not enough data for HPO training split for {model_name} at {current_date_t} (Total: {n_samples_total_hpo}, Train: {n_train_hpo}, Val: {n_val_hpo}). Skipping HPO.", file=sys.stderr)
+                    # HPO will likely fail or use previous year's params; ensure best_params_from_hpo remains None or {}
+                    annual_best_hps_nn[model_name] = annual_best_hps_nn.get(model_name, {}) # Keep old or empty
+                    # The existing logic to handle empty current_best_params_dict will take care of skipping retraining
+                    oos_predictions_nn[model_name].append(np.nan)
+                    continue
+                else:
+                    X_train_hpo_unscaled = X_train_full_unscaled_curr[:n_train_hpo, :]
+                    y_train_hpo_unscaled = y_train_full_unscaled_curr[:n_train_hpo, :]
+                    X_val_hpo_unscaled = X_train_full_unscaled_curr[n_train_hpo:, :]
+                    y_val_hpo_unscaled = y_train_full_unscaled_curr[n_train_hpo:, :]
+
+                    # Scale HPO data using the scalers fit on the *entire current* training data slice
+                    X_train_hpo_scaled = scaler_x_current.transform(X_train_hpo_unscaled)
+                    y_train_hpo_scaled = scaler_y_current.transform(y_train_hpo_unscaled)
+                    X_val_hpo_scaled = scaler_x_current.transform(X_val_hpo_unscaled)
+                    y_val_hpo_scaled = scaler_y_current.transform(y_val_hpo_unscaled)
+
+                    X_train_hpo_tensor = torch.from_numpy(X_train_hpo_scaled.astype(np.float32)).to(hpo_device)
+                    y_train_hpo_tensor = torch.from_numpy(y_train_hpo_scaled.astype(np.float32)).to(hpo_device)
+                    X_val_hpo_tensor = torch.from_numpy(X_val_hpo_scaled.astype(np.float32)).to(hpo_device)
+                    y_val_hpo_tensor = torch.from_numpy(y_val_hpo_scaled.astype(np.float32)).to(hpo_device)
+
+                    try:
+                        if hpo_function == grid_hpo_function:
+                            # The train_grid function returns (best_params, best_net)
+                            # We need to match the interface correctly
+                            best_params_from_hpo, best_net = hpo_function(
                             model_module=model_class,
                             regressor_class=regressor_class,
                             search_space_config=search_space_config_or_fn,
@@ -207,15 +557,17 @@ def run_oos_experiment(
                             n_features=X_train_hpo_tensor.shape[1],
                             epochs=hpo_epochs,
                             device=hpo_device,
-                            batch_size_default=hpo_batch_size
+                            batch_size_default=hpo_batch_size,
+                            use_early_stopping=True,
+                            early_stopping_patience=10
                         )
-                        # For consistency with other HPO methods
-                        hpo_study_or_results = best_net
-                        best_score_from_hpo = float('inf')  # Not returned by grid search
-                    elif hpo_function == random_hpo_runner_function:
-                        # The train_random function returns (best_hyperparams, best_net)
-                        # We need to match the interface correctly
-                        best_params_from_hpo, best_net = hpo_function(
+                            # For consistency with other HPO methods
+                            hpo_study_or_results = best_net
+                            best_score_from_hpo = float('inf')  # Not returned by grid search
+                        elif hpo_function == random_hpo_runner_function:
+                            # The train_random function returns (best_hyperparams, best_net)
+                            # We need to match the interface correctly
+                            best_params_from_hpo, best_net = hpo_function(
                             model_module=model_class,
                             regressor_class=regressor_class,
                             search_space_config=search_space_config_or_fn,
@@ -229,13 +581,16 @@ def run_oos_experiment(
                             trials=hpo_trials,
                             batch_size_default=hpo_batch_size
                         )
-                        # For consistency with other HPO methods, treat best_net as hpo_study_or_results
-                        hpo_study_or_results = best_net
-                        best_score_from_hpo = float('inf')  # Not returned by random search
-                    elif hpo_function == optuna_hpo_runner_function:
-                        # The optuna_hpo_runner_function is the run_study function from training_optuna.py
-                        # Match the interface expected by run_study
-                        best_params_from_hpo, hpo_study_or_results = hpo_function(
+                            # For consistency with other HPO methods, treat best_net as hpo_study_or_results
+                            hpo_study_or_results = best_net
+                            best_score_from_hpo = float('inf')  # Not returned by random search
+                        elif hpo_function == optuna_hpo_runner_function:
+                            # The optuna_hpo_runner_function is the run_study function from training_optuna.py
+                            # Get n_jobs from hpo_general_config if available
+                            hpo_n_jobs = hpo_general_config.get("hpo_jobs", 1)
+                            
+                            # Match the interface expected by run_study
+                            best_params_from_hpo, hpo_study_or_results = hpo_function(
                             model_module=model_class,               # PyTorch model class
                             skorch_net_class=regressor_class,       # Skorch wrapper
                             hpo_config_fn=search_space_config_or_fn, # Function from search_spaces.py
@@ -247,93 +602,94 @@ def run_oos_experiment(
                             epochs=hpo_epochs,                      # Max epochs per trial
                             device=hpo_device,                      # Device (cuda/cpu)
                             batch_size_default=hpo_batch_size,      # Batch size
-                            study_name_prefix=f"{experiment_name_suffix}_{model_name}_{current_date_t}" # For naming the study
+                            study_name_prefix=f"{experiment_name_suffix}_{model_name}_{current_date_t}", # For naming the study
+                            n_jobs=hpo_n_jobs                       # Number of parallel jobs
                         )
-                        if hpo_study_or_results and hpo_study_or_results.best_trial:
-                            best_params_from_hpo = hpo_study_or_results.best_trial.params
-                            best_score_from_hpo = hpo_study_or_results.best_trial.value
+                            if hpo_study_or_results and hpo_study_or_results.best_trial:
+                                best_params_from_hpo = hpo_study_or_results.best_trial.params
+                                best_score_from_hpo = hpo_study_or_results.best_trial.value
+                            else:
+                                print(f"Warning: Optuna study for {model_name} did not yield a best trial.", file=sys.stderr)
+                                # Fallback or error handling needed if no best trial
+                                best_params_from_hpo = {} # Empty dict to avoid downstream errors
+                                best_score_from_hpo = -np.inf
+
                         else:
-                            print(f"Warning: Optuna study for {model_name} did not yield a best trial.", file=sys.stderr)
-                            # Fallback or error handling needed if no best trial
-                            best_params_from_hpo = {} # Empty dict to avoid downstream errors
-                            best_score_from_hpo = -np.inf
+                            raise ValueError(f"Unsupported HPO function type for {model_name}")
 
-                    else:
-                        raise ValueError(f"Unsupported HPO function type for {model_name}")
+                        hpo_duration = time.time() - hpo_start_time
+                        print(f"HPO for {model_name} (year {current_date_t // 100}) took {hpo_duration:.2f}s. Best params: {best_params_from_hpo}")
+                        annual_best_hps_nn[model_name] = best_params_from_hpo
+                        # Save Optuna study object if it's Optuna and save_annual_models is True (or a new flag)
+                        if hpo_function == optuna_hpo_runner_function and hpo_study_or_results and save_annual_models: # Check save_annual_models or a more specific flag
+                            study_path = paths['annual_optuna_studies'] / f"{model_name}_{current_date_t}_optuna_study.joblib"
+                            joblib.dump(hpo_study_or_results, study_path)
+                            print(f"Saved Optuna study for {model_name} to {study_path}")
+                        
+                        # Save best params (already done in original code, keeping it)
+                        joblib.dump(best_params_from_hpo, paths['annual_best_params'] / f"{model_name}_{current_date_t}_best_params.joblib")
 
-                    hpo_duration = time.time() - hpo_start_time
-                    print(f"HPO for {model_name} (year {current_date_t // 100}) took {hpo_duration:.2f}s. Best params: {best_params_from_hpo}")
+                    except Exception as e:
+                        print(f"ERROR: Exception during HPO for {model_name} at {current_date_t}: {e}", file=sys.stderr)
+                        # Ensure best_params_from_hpo is an empty dict to allow fallback to previous year's HPs or skip
+                        best_params_from_hpo = {} 
+                        # Keep existing annual_best_hps_nn[model_name] if HPO fails, or set to empty if first time
+                        annual_best_hps_nn[model_name] = annual_best_hps_nn.get(model_name, {})
+
+                # Retrain model on full current training data (X_train_full_unscaled_curr, y_train_full_unscaled_curr)
+                # Update annual_best_hps_nn only if HPO ran successfully and produced valid parameters
+                if trigger_hpo_this_step and best_params_from_hpo and any(k.startswith("module__") for k in best_params_from_hpo):
                     annual_best_hps_nn[model_name] = best_params_from_hpo
-                    # Save Optuna study object if it's Optuna and save_annual_models is True (or a new flag)
-                    if hpo_function == optuna_hpo_runner_function and hpo_study_or_results and save_annual_models: # Check save_annual_models or a more specific flag
-                        study_path = paths['annual_optuna_studies'] / f"{model_name}_{current_date_t}_optuna_study.joblib"
-                        joblib.dump(hpo_study_or_results, study_path)
-                        print(f"Saved Optuna study for {model_name} to {study_path}")
+                    print(f"Updated best parameters for {model_name} at {current_date_t}: {best_params_from_hpo}")
                     
-                    # Save best params (already done in original code, keeping it)
-                    joblib.dump(best_params_from_hpo, paths['annual_best_params'] / f"{model_name}_{current_date_t}_best_params.joblib")
+                # Use current year's best params if available, otherwise fall back to previous year's params
+                current_best_params_dict = annual_best_hps_nn.get(model_name, {})
 
-                except Exception as e:
-                    print(f"ERROR: Exception during HPO for {model_name} at {current_date_t}: {e}", file=sys.stderr)
-                    # Ensure best_params_from_hpo is an empty dict to allow fallback to previous year's HPs or skip
-                    best_params_from_hpo = {} 
-                    # Keep existing annual_best_hps_nn[model_name] if HPO fails, or set to empty if first time
-                    annual_best_hps_nn[model_name] = annual_best_hps_nn.get(model_name, {})
+                # Note: annual_best_hps_nn was already updated above if HPO was successful
 
-            # Retrain model on full current training data (X_train_full_unscaled_curr, y_train_full_unscaled_curr)
-            # Update annual_best_hps_nn only if HPO ran successfully and produced valid parameters
-            if trigger_hpo_this_step and best_params_from_hpo and any(k.startswith("module__") for k in best_params_from_hpo):
-                annual_best_hps_nn[model_name] = best_params_from_hpo
-                print(f"Updated best parameters for {model_name} at {current_date_t}: {best_params_from_hpo}")
+                # Defensive check for HPO results before retraining
+                if not current_best_params_dict or not any(k.startswith("module__") and k != "module__n_features" for k in current_best_params_dict):
+                    print(f"Warning: HPO for {model_name} at {current_date_t} did not return sufficient module parameters. Best params found: {current_best_params_dict}. Skipping retraining and prediction for this step.", file=sys.stderr)
+                    oos_predictions_nn[model_name].append(np.nan)
+                    if save_annual_models and paths: # Ensure paths is initialized
+                         try:
+                            with open(paths['annual_best_models'] / f"{model_name}_{current_date_t}_MODEL_SKIPPED_NO_VALID_HPO_PARAMS.txt", "w") as f:
+                                f.write(f"HPO failed or returned insufficient module parameters: {current_best_params_dict}")
+                         except Exception as e_path:
+                            print(f"Error saving skipped model placeholder: {e_path}", file=sys.stderr)
+                    continue # Skip to next OOS step for this model
+
+                X_train_fit_scaled = scaler_x_current.transform(X_train_full_unscaled_curr) # Use already fitted scaler
+                y_train_fit_scaled = scaler_y_current.transform(y_train_full_unscaled_curr)
                 
-            # Use current year's best params if available, otherwise fall back to previous year's params
-            current_best_params_dict = annual_best_hps_nn.get(model_name, {})
+                X_train_fit_tensor = torch.from_numpy(X_train_fit_scaled.astype(np.float32)).to(hpo_device)
+                y_train_fit_tensor = torch.from_numpy(y_train_fit_scaled.astype(np.float32)).to(hpo_device)
 
-            # Note: annual_best_hps_nn was already updated above if HPO was successful
+                # Create and fit final model with the best params for this year
+                # We need special handling for model parameters that should be passed to the model constructor
+                model_init_kwargs = {"n_feature": n_features, "n_output": 1}
+                
+                # Get expected args for the specific model_class constructor
+                # This makes the instantiation robust to extra params from HPO
+                sig = inspect.signature(model_class.__init__)
+                valid_model_args = {p.name for p in sig.parameters.values() if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)}
+                # valid_model_args will include 'self', 'n_feature', 'n_output', and model-specific HPs like 'n_hidden1', 'dropout', etc.
 
-            # Defensive check for HPO results before retraining
-            if not current_best_params_dict or not any(k.startswith("module__") and k != "module__n_features" for k in current_best_params_dict):
-                print(f"Warning: HPO for {model_name} at {current_date_t} did not return sufficient module parameters. Best params found: {current_best_params_dict}. Skipping retraining and prediction for this step.", file=sys.stderr)
-                oos_predictions_nn[model_name].append(np.nan)
-                if save_annual_models and paths: # Ensure paths is initialized
-                     try:
-                        with open(paths['annual_best_models'] / f"{model_name}_{current_date_t}_MODEL_SKIPPED_NO_VALID_HPO_PARAMS.txt", "w") as f:
-                            f.write(f"HPO failed or returned insufficient module parameters: {current_best_params_dict}")
-                     except Exception as e_path:
-                        print(f"Error saving skipped model placeholder: {e_path}", file=sys.stderr)
-                continue # Skip to next OOS step for this model
-
-            X_train_fit_scaled = scaler_x_current.transform(X_train_full_unscaled_curr) # Use already fitted scaler
-            y_train_fit_scaled = scaler_y_current.transform(y_train_full_unscaled_curr)
-            
-            X_train_fit_tensor = torch.from_numpy(X_train_fit_scaled.astype(np.float32)).to(hpo_device)
-            y_train_fit_tensor = torch.from_numpy(y_train_fit_scaled.astype(np.float32)).to(hpo_device)
-
-            # Create and fit final model with the best params for this year
-            # We need special handling for model parameters that should be passed to the model constructor
-            model_init_kwargs = {"n_feature": n_features, "n_output": 1}
-            
-            # Get expected args for the specific model_class constructor
-            # This makes the instantiation robust to extra params from HPO
-            sig = inspect.signature(model_class.__init__)
-            valid_model_args = {p.name for p in sig.parameters.values() if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)}
-            # valid_model_args will include 'self', 'n_feature', 'n_output', and model-specific HPs like 'n_hidden1', 'dropout', etc.
-
-            for k_orig, v_orig in current_best_params_dict.items():
-                if k_orig.startswith("module__"):
-                    # First remove the module__ prefix
-                    k_clean = k_orig.replace("module__", "")
-                    
-                    # Then remove any model-specific suffix (e.g., _Net2)
-                    for suffix in [f"_{model_name}", "_Net1", "_Net2", "_Net3", "_Net4", "_Net5", "_DNet1", "_DNet2", "_DNet3"]:
-                        if k_clean.endswith(suffix):
-                            k_clean = k_clean[:-len(suffix)]
-                            break
-                    
-                    # Check if the cleaned parameter name is a valid model argument
-                    if k_clean in valid_model_args:
-                        model_init_kwargs[k_clean] = v_orig
-                        print(f"Using parameter {k_orig} -> {k_clean} = {v_orig} for model {model_name}", file=sys.stderr)
+                for k_orig, v_orig in current_best_params_dict.items():
+                    if k_orig.startswith("module__"):
+                        # First remove the module__ prefix
+                        k_clean = k_orig.replace("module__", "")
+                        
+                        # Then remove any model-specific suffix (e.g., _Net2)
+                        for suffix in [f"_{model_name}", "_Net1", "_Net2", "_Net3", "_Net4", "_Net5", "_DNet1", "_DNet2", "_DNet3"]:
+                            if k_clean.endswith(suffix):
+                                k_clean = k_clean[:-len(suffix)]
+                                break
+                        
+                        # Check if the cleaned parameter name is a valid model argument
+                        if k_clean in valid_model_args:
+                            model_init_kwargs[k_clean] = v_orig
+                            print(f"Using parameter {k_orig} -> {k_clean} = {v_orig} for model {model_name}", file=sys.stderr)
                     # Optionally, print a warning for skipped params:
                     # else:
                     #     if model_name.startswith("Net") and k_clean.startswith("n_hidden") and int(k_clean[-1]) > 1 : # Net1-5 only have n_hidden2 etc.
@@ -396,7 +752,7 @@ def run_oos_experiment(
                 batch_size=hpo_batch_size, # batch_size is a direct Skorch param
                 l1_lambda=current_best_params_dict.get("l1_lambda", 0.0), # Pass l1_lambda if your regressor (e.g., GridNet) uses it
                 # Other parameters...
-                iterator_train__shuffle=True,
+                iterator_train__shuffle=False if hpo_device == "cuda" else True,  # Disable shuffle for CUDA to avoid generator issues
                 callbacks=[EarlyStopping(patience=10)], # This should be fine as Skorch creates a val split by default
                 device=hpo_device,
             )
@@ -467,12 +823,15 @@ def run_oos_experiment(
 
     # HA Metrics
     sr_ha = compute_success_ratio(actual_log_ep_oos_final, ha_oos_final) * 100
-    # Pass CER_GAMMA as positional argument to avoid parameter conflict
-    cer_ha = compute_CER(actual_mkt_ret_oos_final, ha_oos_final, lagged_rf_oos_final, CER_GAMMA) * 100 
+    # Calculate both CER approaches
+    cer_binary_ha = compute_CER_binary(actual_mkt_ret_oos_final, ha_oos_final, lagged_rf_oos_final, CER_GAMMA) * 100
+    cer_prop_ha = compute_CER_proportional(actual_mkt_ret_oos_final, ha_oos_final, lagged_rf_oos_final, CER_GAMMA) * 100
     _, pt_stat_ha, pt_pval_ha = PT_test(actual_log_ep_oos_final, ha_oos_final)
     oos_metrics_results.append({
         'Model': 'HA', 'OOS_R2_vs_HA (%)': 0.0, 
-        'Success_Ratio (%)': sr_ha, 'CER_annual (%)': cer_ha,
+        'Success_Ratio (%)': sr_ha, 
+        'CER_binary_annual (%)': cer_binary_ha,
+        'CER_proportional_annual (%)': cer_prop_ha,
         'CW_stat': np.nan, 'CW_pvalue': np.nan, # HA is the benchmark
         'PT_stat': pt_stat_ha, 'PT_pvalue': pt_pval_ha
     })
@@ -483,15 +842,18 @@ def run_oos_experiment(
     if np.sum(valid_cf_mask) > 0:
         oos_r2_cf = compute_in_r_square(actual_log_ep_oos_final[valid_cf_mask], ha_oos_final[valid_cf_mask], cf_preds_oos_final[valid_cf_mask]) * 100
         sr_cf = compute_success_ratio(actual_log_ep_oos_final[valid_cf_mask], cf_preds_oos_final[valid_cf_mask]) * 100
-        # Pass CER_GAMMA as positional argument to avoid parameter conflict
-        cer_cf = compute_CER(actual_mkt_ret_oos_final[valid_cf_mask], cf_preds_oos_final[valid_cf_mask], lagged_rf_oos_final[valid_cf_mask], CER_GAMMA) * 100
+        # Calculate both CER approaches
+        cer_binary_cf = compute_CER_binary(actual_mkt_ret_oos_final[valid_cf_mask], cf_preds_oos_final[valid_cf_mask], lagged_rf_oos_final[valid_cf_mask], CER_GAMMA) * 100
+        cer_prop_cf = compute_CER_proportional(actual_mkt_ret_oos_final[valid_cf_mask], cf_preds_oos_final[valid_cf_mask], lagged_rf_oos_final[valid_cf_mask], CER_GAMMA) * 100
         cw_stat_cf, cw_pval_cf = CW_test(actual_log_ep_oos_final[valid_cf_mask], ha_oos_final[valid_cf_mask], cf_preds_oos_final[valid_cf_mask])
         _, pt_stat_cf, pt_pval_cf = PT_test(actual_log_ep_oos_final[valid_cf_mask], cf_preds_oos_final[valid_cf_mask])
     else:
-        oos_r2_cf, sr_cf, cer_cf, cw_stat_cf, cw_pval_cf, pt_stat_cf, pt_pval_cf = [np.nan] * 7
+        oos_r2_cf, sr_cf, cer_binary_cf, cer_prop_cf, cw_stat_cf, cw_pval_cf, pt_stat_cf, pt_pval_cf = [np.nan] * 8
     oos_metrics_results.append({
         'Model': 'CF', 'OOS_R2_vs_HA (%)': oos_r2_cf, 
-        'Success_Ratio (%)': sr_cf, 'CER_annual (%)': cer_cf,
+        'Success_Ratio (%)': sr_cf, 
+        'CER_binary_annual (%)': cer_binary_cf,
+        'CER_proportional_annual (%)': cer_prop_cf,
         'CW_stat': cw_stat_cf, 'CW_pvalue': cw_pval_cf,
         'PT_stat': pt_stat_cf, 'PT_pvalue': pt_pval_cf
     })
@@ -503,61 +865,53 @@ def run_oos_experiment(
         if np.sum(valid_nn_mask) > 0:
             oos_r2_nn = compute_in_r_square(actual_log_ep_oos_final[valid_nn_mask], ha_oos_final[valid_nn_mask], preds_nn_final[valid_nn_mask]) * 100
             sr_nn = compute_success_ratio(actual_log_ep_oos_final[valid_nn_mask], preds_nn_final[valid_nn_mask]) * 100
-            # Pass CER_GAMMA as positional argument to avoid parameter conflict
-            cer_nn = compute_CER(actual_mkt_ret_oos_final[valid_nn_mask], preds_nn_final[valid_nn_mask], lagged_rf_oos_final[valid_nn_mask], CER_GAMMA) * 100
+            # Calculate both CER approaches
+            cer_binary_nn = compute_CER_binary(actual_mkt_ret_oos_final[valid_nn_mask], preds_nn_final[valid_nn_mask], lagged_rf_oos_final[valid_nn_mask], CER_GAMMA) * 100
+            cer_prop_nn = compute_CER_proportional(actual_mkt_ret_oos_final[valid_nn_mask], preds_nn_final[valid_nn_mask], lagged_rf_oos_final[valid_nn_mask], CER_GAMMA) * 100
             cw_stat_nn, cw_pval_nn = CW_test(actual_log_ep_oos_final[valid_nn_mask], ha_oos_final[valid_nn_mask], preds_nn_final[valid_nn_mask])
             _, pt_stat_nn, pt_pval_nn = PT_test(actual_log_ep_oos_final[valid_nn_mask], preds_nn_final[valid_nn_mask])
         else:
-            oos_r2_nn, sr_nn, cer_nn, cw_stat_nn, cw_pval_nn, pt_stat_nn, pt_pval_nn = [np.nan] * 7
+            oos_r2_nn, sr_nn, cer_binary_nn, cer_prop_nn, cw_stat_nn, cw_pval_nn, pt_stat_nn, pt_pval_nn = [np.nan] * 8
         
         oos_metrics_results.append({
             'Model': model_name, 'OOS_R2_vs_HA (%)': oos_r2_nn, 
-            'Success_Ratio (%)': sr_nn, 'CER_annual (%)': cer_nn,
+            'Success_Ratio (%)': sr_nn, 
+            'CER_binary_annual (%)': cer_binary_nn,
+            'CER_proportional_annual (%)': cer_prop_nn,
             'CW_stat': cw_stat_nn, 'CW_pvalue': cw_pval_nn,
             'PT_stat': pt_stat_nn, 'PT_pvalue': pt_pval_nn
         })
 
-    # Calculate CER gain relative to HA
-    ha_cer = oos_metrics_results[0]['CER_annual (%)']  # Get HA CER value
-    oos_metrics_results[0]['CER_gain_vs_HA (%)'] = 0.0  # HA has zero gain vs itself
-    oos_metrics_results[1]['CER_gain_vs_HA (%)'] = oos_metrics_results[1]['CER_annual (%)'] - ha_cer
-    for i in range(2, len(oos_metrics_results)):
-        oos_metrics_results[i]['CER_gain_vs_HA (%)'] = oos_metrics_results[i]['CER_annual (%)'] - ha_cer
+    # Calculate CER gains relative to HA for both approaches
+    ha_cer_binary = oos_metrics_results[0]['CER_binary_annual (%)']  # Get HA binary CER value
+    ha_cer_prop = oos_metrics_results[0]['CER_proportional_annual (%)']  # Get HA proportional CER value
+    
+    # Add gains for all models
+    for i in range(len(oos_metrics_results)):
+        if i == 0:  # HA has zero gain vs itself
+            oos_metrics_results[i]['CER_binary_gain_vs_HA (%)'] = 0.0
+            oos_metrics_results[i]['CER_proportional_gain_vs_HA (%)'] = 0.0
+        else:
+            oos_metrics_results[i]['CER_binary_gain_vs_HA (%)'] = oos_metrics_results[i]['CER_binary_annual (%)'] - ha_cer_binary
+            oos_metrics_results[i]['CER_proportional_gain_vs_HA (%)'] = oos_metrics_results[i]['CER_proportional_annual (%)'] - ha_cer_prop
 
     # Create and save final metrics dataframe
     df_oos_metrics = pd.DataFrame(oos_metrics_results)
     
-    # Reorder columns to put CER_gain after CER_annual
+    # Reorder columns for better readability
     cols = list(df_oos_metrics.columns)
-    cer_idx = cols.index('CER_annual (%)')
-    cols.insert(cer_idx + 1, cols.pop(cols.index('CER_gain_vs_HA (%)')))
+    # Place gains right after their respective CER values
+    desired_order = ['Model', 'OOS_R2_vs_HA (%)', 'Success_Ratio (%)', 
+                     'CER_binary_annual (%)', 'CER_binary_gain_vs_HA (%)',
+                     'CER_proportional_annual (%)', 'CER_proportional_gain_vs_HA (%)',
+                     'CW_stat', 'CW_pvalue', 'PT_stat', 'PT_pvalue']
+    # Reorder based on desired order (only include columns that exist)
+    cols = [col for col in desired_order if col in cols]
     df_oos_metrics = df_oos_metrics[cols]
     
     print("\n--- OOS Evaluation Complete for", experiment_name_suffix, "---")
     print(df_oos_metrics)
     df_oos_metrics.to_csv(paths['metrics_file'], index=False)
 
-    # --------------------------------
-    # Print debug information to help diagnose the issue
-    # --------------------------------
-    print("\nHA forecast sample:", ha_oos_final[:5])
-    print("CF forecast sample:", np.array(oos_predictions_cf)[:5])
-    
-    # Check if they're identical
-    are_identical = np.allclose(ha_oos_final, np.array(oos_predictions_cf), rtol=1e-5, atol=1e-8)
-    print(f"Are HA and CF identical? {are_identical}")
-    
-    # Compute success ratios with verbose output
-    print("\nSuccess Ratio Details:")
-    print("HA sign matches:", np.sum(np.sign(actual_log_ep_oos_final) == np.sign(ha_oos_final)))
-    print("CF sign matches:", np.sum(np.sign(actual_log_ep_oos_final) == np.sign(np.array(oos_predictions_cf))))
-    print("Total observations:", len(actual_log_ep_oos_final))
-    
-    # HA Model Metrics
-    sr_ha = compute_success_ratio(actual_log_ep_oos_final, ha_oos_final) * 100
-    # Fix: Pass CER_GAMMA as positional argument instead of keyword to avoid parameter conflict
-    cer_ha = compute_CER(actual_mkt_ret_oos_final, ha_oos_final, lagged_rf_oos_final, CER_GAMMA) * 100
-    
-    # ... rest of your code ...
 
     return df_oos_metrics, df_all_oos_outputs

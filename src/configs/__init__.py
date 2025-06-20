@@ -1,0 +1,5 @@
+# src/configs/__init__.py
+"""Configuration module for hyperparameter search spaces."""
+
+# Threading Status: THREAD_SAFE (Module initialization)
+# No threading impact - standard Python module initialization
