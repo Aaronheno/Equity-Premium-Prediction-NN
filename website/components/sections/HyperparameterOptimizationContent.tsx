@@ -321,7 +321,7 @@ const HyperparameterOptimizationContent = () => {
                               <div>
                                 <h6 className="font-semibold text-text-primary mb-2">Distribution Functions:</h6>
                                 <div className="space-y-2">
-                                  <div><span className="font-mono text-accent-green">l(θ)</span> = density for "good" hyperparameters (y &lt; y*)</div>
+                                  <div><span className="font-mono text-accent-green">l(θ)</span> = density for "good" hyperparameters (y {'<'} y*)</div>
                                   <div><span className="font-mono text-accent-orange">g(θ)</span> = density for "bad" hyperparameters (y ≥ y*)</div>
                                 </div>
                               </div>
@@ -342,7 +342,7 @@ const HyperparameterOptimizationContent = () => {
                               <div>
                                 <h6 className="font-semibold text-text-primary mb-2">Parameters:</h6>
                                 <div className="space-y-2">
-                                  <div><span className="font-mono text-accent-blue">γ</span> = p(y &lt; y*) ≈ 0.25 (quantile parameter)</div>
+                                  <div><span className="font-mono text-accent-blue">γ</span> = p(y {'<'} y*) ≈ 0.25 (quantile parameter)</div>
                                   <div><span className="font-mono text-accent-green">l(θ)</span> = density of good hyperparameters at θ</div>
                                   <div><span className="font-mono text-accent-orange">g(θ)</span> = density of bad hyperparameters at θ</div>
                                 </div>
@@ -415,7 +415,7 @@ const HyperparameterOptimizationContent = () => {
                             explanation="Uniform distributions for hidden layer sizes with decreasing ranges. This enforces architectural constraint that layers should generally decrease in size from input to output, creating an information bottleneck."
                           />
                           <div className="text-xs text-text-muted mt-2">
-                            <strong>Architecture constraint:</strong> h₁ &gt; h₂ &gt; h₃ promotes hierarchical feature learning and prevents overfitting
+                            <strong>Architecture constraint:</strong> h₁ {'>'} h₂ {'>'} h₃ promotes hierarchical feature learning and prevents overfitting
                           </div>
                         </div>
                         
@@ -739,7 +739,7 @@ GRID_OOS = {
                 <div>
                   <h4 className="font-semibold text-text-primary mb-2">Constraint Relationships:</h4>
                   <div className="space-y-1 text-text-secondary">
-                    <div>• Layer sizes should decrease: h₁ &gt; h₂ &gt; h₃</div>
+                    <div>• Layer sizes should decrease: h₁ {'>'} h₂ {'>'} h₃</div>
                     <div>• Batch size should divide dataset size</div>
                     <div>• Consider memory constraints for large models</div>
                   </div>

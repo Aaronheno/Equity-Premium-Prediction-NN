@@ -8,9 +8,9 @@ import { useState } from 'react'
 const breakthroughResults = {
   performance: {
     bestModel: "DNN1 (Bayesian Optimization)",
-    oosR2: "+0.75%", // FIRST POSITIVE R² ACHIEVED!
+    oosR2: "+0.75%", // POSITIVE R² ACHIEVED!
     successRatio: "60.0%",
-    statisticalBreakthrough: "First positive out-of-sample R²"
+    statisticalBreakthrough: "Positive out-of-sample R² in this study"
   },
   experiments: {
     totalTrials: "1,000+ (DNN1)",
@@ -22,7 +22,7 @@ const breakthroughResults = {
     annualReturn: "26.45%", // OUTPERFORMED HA's 26.3%!
     sharpeRatio: "0.86", // SUPERIOR to HA's 0.84!
     benchmarkComparison: "vs HA: 26.3% (0.84 Sharpe)",
-    breakthrough: "First economic outperformance"
+    breakthrough: "Economic outperformance achieved"
   }
 }
 
@@ -158,16 +158,16 @@ export default function ResultsHighlights() {
           className="bg-bg-primary border border-bg-tertiary rounded-2xl p-8"
         >
           <h3 className="text-2xl font-bold text-center mb-8 gradient-text">
-            🏆 Historic Research Achievements
+            🏆 Key Research Results
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             <div className="flex items-start space-x-3 bg-accent-green/5 p-4 rounded-lg border border-accent-green/20">
               <CheckCircle className="w-6 h-6 text-accent-green mt-1 flex-shrink-0" />
               <div>
-                <h4 className="font-semibold text-text-primary mb-1">🎯 FIRST Positive R²</h4>
+                <h4 className="font-semibold text-text-primary mb-1">🎯 Positive R² Achieved</h4>
                 <p className="text-text-secondary text-sm">
-                  DNN1 achieved +0.75% out-of-sample R² - the first positive result in equity premium prediction
+                  DNN1 achieved +0.75% out-of-sample R² - a positive result in this equity premium prediction study
                 </p>
               </div>
             </div>
@@ -177,7 +177,7 @@ export default function ResultsHighlights() {
               <div>
                 <h4 className="font-semibold text-text-primary mb-1">💰 Economic Outperformance</h4>
                 <p className="text-text-secondary text-sm">
-                  26.45% return (0.86 Sharpe) vs HA benchmark 26.3% (0.84 Sharpe) - first NN to beat HA
+                  26.45% return (0.86 Sharpe) vs HA benchmark 26.3% (0.84 Sharpe) - DNN1 outperformed HA
                 </p>
               </div>
             </div>
@@ -227,7 +227,7 @@ export default function ResultsHighlights() {
               <div>
                 <h4 className="font-semibold text-text-primary mb-1">💻 Hardware Requirements</h4>
                 <p className="text-text-secondary text-sm">
-                  Results demonstrate need for high-performance computing to achieve breakthrough performance
+                  Results demonstrate need for high-performance computing to achieve optimal performance
                 </p>
               </div>
             </div>

@@ -76,7 +76,7 @@ function Hero() {
             </div>
             <div className="flex items-center space-x-2 bg-accent-blue/10 px-3 py-2 rounded-lg">
               <Brain className="w-5 h-5 text-accent-blue" />
-              <span className="text-accent-blue font-semibold">26.45% &gt; 26.3% HA</span>
+              <span className="text-accent-blue font-semibold">26.45% {'>'} 26.3% HA</span>
             </div>
             <div className="flex items-center space-x-2 bg-accent-purple/10 px-3 py-2 rounded-lg">
               <Zap className="w-5 h-5 text-accent-purple" />
@@ -148,7 +148,7 @@ function Hero() {
                 <br />
                 <span className="text-text-muted">    # Deep network with batch normalization</span>
                 <br />
-                <span className="text-text-muted">    # BREAKTHROUGH MODEL: +0.75% R², 26.45% return</span>
+                <span className="text-text-muted">    # TOP PERFORMING MODEL: +0.75% R², 26.45% return</span>
                 <br />
                 <span className="text-text-muted">    # 4 hidden layers + BatchNorm blocks</span>
               </div>

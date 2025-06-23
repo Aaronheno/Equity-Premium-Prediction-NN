@@ -147,7 +147,7 @@ const comparisonResults = [
     cer: 4.8,
     breakthrough: true,
     rank: 1,
-    description: 'First positive R² and economic outperformance achieved'
+    description: 'Positive R² and economic outperformance achieved'
   },
   {
     model: 'Historical Average',
@@ -562,7 +562,7 @@ export default function EvaluationContent() {
                       <td className="text-center py-3 px-4">
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           result.rank === 1 ? 'bg-accent-green/20 text-accent-green' :
-                          result.rank <= 3 ? 'bg-accent-blue/20 text-accent-blue' :
+                          (typeof result.rank === 'number' && result.rank <= 3) ? 'bg-accent-blue/20 text-accent-blue' :
                           result.rank === 'Baseline' ? 'bg-accent-red/20 text-accent-red' :
                           'bg-accent-orange/20 text-accent-orange'
                         }`}>
@@ -592,7 +592,7 @@ export default function EvaluationContent() {
                   <div>• DNN1 outperformed Historical Average benchmark</div>
                   <div>• Deep networks with intensive optimization crucial</div>
                   <div>• Risk-adjusted returns justify computational complexity</div>
-                  <div>• First neural network to beat HA economically</div>
+                  <div>• Neural network beat HA economically in this study</div>
                 </div>
               </div>
               
