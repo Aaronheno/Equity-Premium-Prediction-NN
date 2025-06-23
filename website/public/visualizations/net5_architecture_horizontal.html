@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Net5 Neural Network Architecture - Horizontal</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #ffffff;
+            color: #1f2937;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: row;
+            min-height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Side panel for model selection */
+        .model-panel {
+            width: 200px;
+            background-color: #f3f4f6;
+            padding: 20px;
+            box-shadow: 2px 0 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s;
+        }
+        
+        body.dark .model-panel {
+            background-color: #1f2937;
+            box-shadow: 2px 0 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        body.forest .model-panel {
+            background-color: #ecfdf5;
+        }
+        
+        .model-panel h2 {
+            font-size: 1.5rem;
+            color: #4f46e5;
+            margin-bottom: 20px;
+            text-align: center;
+            transition: color 0.3s;
+        }
+        
+        body.dark .model-panel h2 {
+            color: #818cf8;
+        }
+        
+        body.forest .model-panel h2 {
+            color: #15803d;
+        }
+        
+        .model-section {
+            margin-bottom: 20px;
+        }
+        
+        .model-section h3 {
+            font-size: 1.1rem;
+            color: #374151;
+            margin-bottom: 10px;
+            transition: color 0.3s;
+            font-weight: 600;
+        }
+        
+        body.dark .model-section h3 {
+            color: #d1d5db;
+        }
+        
+        body.forest .model-section h3 {
+            color: #14532d;
+            font-weight: 700;
+        }
+        
+        .model-button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            transition: all 0.3s;
+            text-align: left;
+        }
+        
+        .model-button:hover {
+            background-color: #f3f4f6;
+            border-color: #4f46e5;
+            transform: translateX(5px);
+        }
+        
+        .model-button.active {
+            background-color: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+        
+        body.dark .model-button {
+            background-color: #374151;
+            border-color: #4b5563;
+            color: #f3f4f6;
+        }
+        
+        body.dark .model-button:hover {
+            background-color: #4b5563;
+            border-color: #818cf8;
+            color: #ffffff;
+        }
+        
+        body.dark .model-button.active {
+            background-color: #6366f1;
+            border-color: #6366f1;
+            color: white;
+        }
+        
+        body.forest .model-button {
+            background-color: #f0fdf4;
+            border-color: #86efac;
+            color: #14532d;
+        }
+        
+        body.forest .model-button:hover {
+            background-color: #dcfce7;
+            border-color: #15803d;
+            color: #052e16;
+        }
+        
+        body.forest .model-button.active {
+            background-color: #15803d;
+            border-color: #15803d;
+            color: white;
+        }
+        
+        body.dark {
+            background-color: #1a1a1a;
+            color: #e5e7eb;
+        }
+        
+        body.forest {
+            background-color: #f0fdf4;
+            color: #14532d;
+        }
+        
+        h1 {
+            color: #4f46e5;
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            text-align: center;
+            transition: color 0.3s;
+        }
+        
+        body.dark h1 {
+            color: #818cf8;
+        }
+        
+        body.forest h1 {
+            color: #15803d;
+        }
+        
+        .mermaid-container {
+            background-color: #f9fafb;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            width: 95vw;
+            max-width: 1600px;
+            overflow-x: auto;
+            min-height: 700px;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        
+        body.dark .mermaid-container {
+            background-color: #2d2d2d;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+        
+        body.forest .mermaid-container {
+            background-color: #f0fdf4;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        button {
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            margin: 0 5px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #4338ca;
+        }
+        
+        button.active {
+            background-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+        }
+        
+        body.dark button {
+            background-color: #6366f1;
+        }
+        
+        body.dark button:hover {
+            background-color: #4f46e5;
+        }
+        
+        body.dark button.active {
+            background-color: #818cf8;
+        }
+        
+        body.forest button {
+            background-color: #15803d;
+        }
+        
+        body.forest button:hover {
+            background-color: #166534;
+        }
+        
+        body.forest button.active {
+            background-color: #22c55e;
+        }
+        
+        .info {
+            margin-top: 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 16px;
+            max-width: 1200px;
+            line-height: 1.6;
+            transition: color 0.3s;
+        }
+        
+        body.dark .info {
+            color: #9ca3af;
+        }
+        
+        body.forest .info {
+            color: #15803d;
+        }
+        
+        .mermaid {
+            width: 100%;
+            font-size: 28px;
+        }
+        
+        .mermaid svg {
+            font-size: 28px !important;
+        }
+        
+        .mermaid .node text {
+            font-size: 26px !important;
+            font-weight: bold !important;
+        }
+        
+        .mermaid .edgeLabel {
+            font-size: 24px !important;
+            font-weight: bold !important;
+        }
+        
+        .mermaid .cluster text {
+            font-size: 26px !important;
+            font-weight: 900 !important;
+        }
+        
+        .mermaid .cluster rect {
+            padding: 15px !important;
+        }
+        
+        /* Theme-specific overrides for text visibility */
+        body.dark .mermaid text {
+            fill: #ffffff !important;
+        }
+        
+        body.forest .mermaid text {
+            fill: #14532d !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Side Panel for Model Selection -->
+    <div class="model-panel">
+        <h2>Model Selection</h2>
+        
+        <div class="model-section">
+            <h3>Standard Models</h3>
+            <button class="model-button" onclick="selectModel('nn1')">NN1</button>
+            <button class="model-button" onclick="selectModel('nn2')">NN2</button>
+            <button class="model-button" onclick="selectModel('nn3')">NN3</button>
+            <button class="model-button" onclick="selectModel('nn4')">NN4</button>
+            <button class="model-button active" onclick="selectModel('nn5')">NN5</button>
+        </div>
+        
+        <div class="model-section">
+            <h3>Deep Models</h3>
+            <button class="model-button" onclick="selectModel('dnn1')">DNN1</button>
+            <button class="model-button" onclick="selectModel('dnn2')">DNN2</button>
+            <button class="model-button" onclick="selectModel('dnn3')">DNN3</button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+        <h1>NN5 Neural Network Architecture</h1>
+        
+        <div class="controls">
+            <button id="lightBtn" onclick="switchTheme('light')" class="active">Light Theme</button>
+            <button id="darkBtn" onclick="switchTheme('dark')">Dark Theme</button>
+            <button id="forestBtn" onclick="switchTheme('forest')">Forest Theme</button>
+        </div>
+        
+        <div class="mermaid-container">
+        <pre class="mermaid">
+%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '28px', 'fontFamily': 'Arial', 'fontWeight': 'bold'}}}%%
+graph LR
+    %% Input Features
+    subgraph INPUT["<b>Input Layer</b>"]
+        I1["x₁"]
+        I2["x₂"]
+        I3["⋮"]
+        IN["xₙ"]
+    end
+
+    %% Hidden Layer 1
+    subgraph H1["<b>Hidden Layer 1</b>"]
+        H1_NODES["32-256<br/>neurons"]
+    end
+
+    %% Hidden Layer 2
+    subgraph H2["<b>Hidden Layer 2</b>"]
+        H2_NODES["16-192<br/>neurons"]
+    end
+
+    %% Hidden Layer 3
+    subgraph H3["<b>Hidden Layer 3</b>"]
+        H3_NODES["8-128<br/>neurons"]
+    end
+
+    %% Hidden Layer 4
+    subgraph H4["<b>Hidden Layer 4</b>"]
+        H4_NODES["8-96<br/>neurons"]
+    end
+
+    %% Hidden Layer 5
+    subgraph H5["<b>Hidden Layer 5</b>"]
+        H5_NODES["4-64<br/>neurons"]
+    end
+
+    %% Output - Final Prediction
+    subgraph OUT["<b>PREDICTION</b>"]
+        O["ŷ<br/>Equity<br/>Premium"]
+    end
+
+    %% Forward Pass - Main Flow
+    INPUT ==> H1
+    H1 ==> H2
+    H2 ==> H3
+    H3 ==> H4
+    H4 ==> H5
+    H5 ==> OUT
+
+    %% Activation Functions
+    H1 --> A1{{"ReLU +<br/>Dropout"}}
+    A1 -.-> H2
+    H2 --> A2{{"ReLU +<br/>Dropout"}}
+    A2 -.-> H3
+    H3 --> A3{{"ReLU +<br/>Dropout"}}
+    A3 -.-> H4
+    H4 --> A4{{"ReLU +<br/>Dropout"}}
+    A4 -.-> H5
+    H5 --> A5{{"ReLU +<br/>Dropout"}}
+    A5 -.-> OUT
+
+    %% Training Components (Below main flow)
+    Y_TRUE["Actual<br/>Values"] --> LOSS{{"MSE Loss<br/>+ L1/L2"}}
+    OUT --> LOSS
+    REG["Regularization<br/>L1/L2: λ ∈ [1e-7,1e-2]"] --> LOSS
+    
+    LOSS --> OPT["Optimizer<br/>Adam/SGD/RMSprop<br/>LR: 1e-5 to 1e-2"]
+    LOSS -.-> ES["Early Stop<br/>val_loss<br/>patience=10"]
+    
+    %% Backpropagation
+    OPT -.->|"∇W"| H5
+    OPT -.->|"∇W"| H4
+    OPT -.->|"∇W"| H3
+    OPT -.->|"∇W"| H2
+    OPT -.->|"∇W"| H1
+
+    %% Context Information (Top)
+    subgraph CONTEXT["<b>METHODOLOGY</b>"]
+        HPO["<b>HPO:</b> Grid/Random/Bayesian<br/>Annual Retraining"]
+        WINDOW["<b>Expanding Window OOS</b><br/>Train: t₀→t, Predict: t+1"]
+    end
+    
+    %% HPO influences
+    HPO -.->|"Architecture"| H1
+    HPO -.->|"Architecture"| H3
+    HPO -.->|"Architecture"| H5
+    HPO -.->|"Training"| OPT
+
+    %% Styling
+    classDef inputClass fill:#e0e7ff,stroke:#6366f1,stroke-width:3px,color:#1f2937
+    classDef hiddenClass fill:#dbeafe,stroke:#3b82f6,stroke-width:3px,color:#1f2937
+    classDef outputClass fill:#d1fae5,stroke:#10b981,stroke-width:4px,color:#1f2937
+    classDef activationClass fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#1f2937
+    classDef lossClass fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#1f2937
+    classDef optimClass fill:#fed7aa,stroke:#ea580c,stroke-width:3px,color:#1f2937
+    classDef contextClass fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef monitorClass fill:#e0f2fe,stroke:#0891b2,stroke-width:2px,color:#1f2937
+
+    class I1,I2,I3,IN inputClass
+    class H1_NODES,H2_NODES,H3_NODES,H4_NODES,H5_NODES hiddenClass
+    class O outputClass
+    class A1,A2,A3,A4,A5 activationClass
+    class LOSS,Y_TRUE lossClass
+    class OPT,REG optimClass
+    class HPO,WINDOW contextClass
+    class ES monitorClass
+        </pre>
+        </div>
+        
+        <div class="info">
+            <p><strong>NN5 Architecture:</strong> 5 hidden layers with configurable neurons through hyperparameter optimization</p>
+            <p><strong>Activation:</strong> ReLU for hidden layers with dropout regularization (p=0.0-0.6) | Linear activation for output layer</p>
+            <p><strong>Training:</strong> Multiple optimizers with L1/L2 regularization | Learning rate: 1e-5 to 1e-2 | MSE loss function</p>
+        </div>
+    </div>
+    
+    <script>
+        // Simple theme switcher
+        function switchTheme(theme) {
+            // Update body class
+            document.body.className = theme === 'light' ? '' : theme;
+            
+            // Update active button
+            document.querySelectorAll('.controls button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(theme + 'Btn').classList.add('active');
+        }
+        
+        // Model selection handler
+        function selectModel(model) {
+            // Update active model button
+            document.querySelectorAll('.model-button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update the title
+            const modelUpper = model.toUpperCase();
+            document.querySelector('h1').textContent = modelUpper + ' Neural Network Architecture';
+            
+            // Update the info text
+            updateInfoText(model);
+            
+            // Load the appropriate diagram
+            loadModelDiagram(model);
+        }
+        
+        function updateInfoText(model) {
+            const infoDiv = document.querySelector('.info');
+            const modelUpper = model.toUpperCase();
+            
+            switch(model) {
+                case 'nn1':
+                    infoDiv.innerHTML = `
+                        <p><strong>${modelUpper} Architecture:</strong> 1 hidden layer with configurable neurons through hyperparameter optimization</p>
+                        <p><strong>Activation:</strong> ReLU for hidden layer with dropout regularization (p=0.0-0.6) | Linear activation for output layer</p>
+                        <p><strong>Training:</strong> Multiple optimizers with L1/L2 regularization | Learning rate: 1e-5 to 1e-2 | MSE loss function</p>
+                    `;
+                    break;
+                case 'nn2':
+                    infoDiv.innerHTML = `
+                        <p><strong>${modelUpper} Architecture:</strong> 2 hidden layers with configurable neurons through hyperparameter optimization</p>
+                        <p><strong>Activation:</strong> ReLU for hidden layers with dropout regularization (p=0.0-0.6) | Linear activation for output layer</p>
+                        <p><strong>Training:</strong> Multiple optimizers with L1/L2 regularization | Learning rate: 1e-5 to 1e-2 | MSE loss function</p>
+                    `;
+                    break;
+                case 'nn3':
+                    infoDiv.innerHTML = `
+                        <p><strong>${modelUpper} Architecture:</strong> 3 hidden layers with configurable neurons through hyperparameter optimization</p>
+                        <p><strong>Activation:</strong> ReLU for hidden layers with dropout regularization (p=0.0-0.6) | Linear activation for output layer</p>
+                        <p><strong>Training:</strong> Multiple optimizers with L1/L2 regularization | Learning rate: 1e-5 to 1e-2 | MSE loss function</p>
+                    `;
+                    break;
+                case 'nn4':
+                    infoDiv.innerHTML = `
+                        <p><strong>${modelUpper} Architecture:</strong> 4 hidden layers with configurable neurons through hyperparameter optimization</p>
+                        <p><strong>Activation:</strong> ReLU for hidden layers with dropout regularization (p=0.0-0.6) | Linear activation for output layer</p>
+                        <p><strong>Training:</strong> Multiple optimizers with L1/L2 regularization | Learning rate: 1e-5 to 1e-2 | MSE loss function</p>
+                    `;
+                    break;
+                case 'nn5':
+                    infoDiv.innerHTML = `
+                        <p><strong>${modelUpper} Architecture:</strong> 5 hidden layers with configurable neurons through hyperparameter optimization</p>
+                        <p><strong>Activation:</strong> ReLU for hidden layers with dropout regularization (p=0.0-0.6) | Linear activation for output layer</p>
+                        <p><strong>Training:</strong> Multiple optimizers with L1/L2 regularization | Learning rate: 1e-5 to 1e-2 | MSE loss function</p>
+                    `;
+                    break;
+                case 'dnn1':
+                    infoDiv.innerHTML = `
+                        <p><strong>${modelUpper} Architecture:</strong> 4 deep hidden layers with BatchNorm, configurable neurons through hyperparameter optimization</p>
+                        <p><strong>Activation:</strong> ReLU for hidden layers with BatchNorm + dropout regularization (p=0.0-0.6) | Linear activation for output layer</p>
+                        <p><strong>Training:</strong> Multiple optimizers with L1/L2 regularization | Learning rate: 1e-5 to 1e-2 | MSE loss function</p>
+                    `;
+                    break;
+                case 'dnn2':
+                    infoDiv.innerHTML = `
+                        <p><strong>${modelUpper} Architecture:</strong> 5 deep hidden layers with BatchNorm, configurable neurons through hyperparameter optimization</p>
+                        <p><strong>Activation:</strong> ReLU for hidden layers with BatchNorm + dropout regularization (p=0.0-0.6) | Linear activation for output layer</p>
+                        <p><strong>Training:</strong> Multiple optimizers with L1/L2 regularization | Learning rate: 1e-5 to 1e-2 | MSE loss function</p>
+                    `;
+                    break;
+                case 'dnn3':
+                    infoDiv.innerHTML = `
+                        <p><strong>${modelUpper} Architecture:</strong> 5 deep hidden layers with BatchNorm, configurable neurons through hyperparameter optimization</p>
+                        <p><strong>Activation:</strong> ReLU for hidden layers with BatchNorm + dropout regularization (p=0.0-0.6) | Linear activation for output layer</p>
+                        <p><strong>Training:</strong> Multiple optimizers with L1/L2 regularization | Learning rate: 1e-5 to 1e-2 | MSE loss function</p>
+                    `;
+                    break;
+                default:
+                    infoDiv.innerHTML = `<p>${modelUpper} diagram coming soon!</p>`;
+            }
+        }
+        
+        function loadModelDiagram(model) {
+            const container = document.querySelector('.mermaid-container');
+            
+            // Get the appropriate diagram
+            let diagram = '';
+            switch(model) {
+                case 'nn1':
+                    diagram = getNN1Diagram();
+                    break;
+                case 'nn2':
+                    diagram = getNN2Diagram();
+                    break;
+                case 'nn3':
+                    diagram = getNN3Diagram();
+                    break;
+                case 'nn4':
+                    diagram = getNN4Diagram();
+                    break;
+                case 'nn5':
+                    diagram = getNN5Diagram();
+                    break;
+                case 'dnn1':
+                    diagram = getDNN1Diagram();
+                    break;
+                case 'dnn2':
+                    diagram = getDNN2Diagram();
+                    break;
+                case 'dnn3':
+                    diagram = getDNN3Diagram();
+                    break;
+                default:
+                    container.innerHTML = `<div style="text-align: center; padding: 100px;"><h2>${model.toUpperCase()} architecture coming soon!</h2></div>`;
+                    return;
+            }
+            
+            // Clear and update container
+            container.innerHTML = `<pre class="mermaid">${diagram}</pre>`;
+            
+            // Re-initialize mermaid for the new diagram
+            mermaid.init(undefined, container.querySelector('.mermaid'));
+        }
+        
+        // Define diagram functions for each model
+        function getNN1Diagram() {
+            return `%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '28px', 'fontFamily': 'Arial', 'fontWeight': 'bold'}}}%%
+graph LR
+    %% Input Features
+    subgraph INPUT["<b>Input Layer</b>"]
+        I1["x₁"]
+        I2["x₂"]
+        I3["⋮"]
+        IN["xₙ"]
+    end
+
+    %% Hidden Layer 1
+    subgraph H1["<b>Hidden Layer 1</b>"]
+        H1_NODES["16-256<br/>neurons"]
+    end
+
+    %% Output - Final Prediction
+    subgraph OUT["<b>PREDICTION</b>"]
+        O["ŷ<br/>Equity<br/>Premium"]
+    end
+
+    %% Forward Pass - Main Flow
+    INPUT ==> H1
+    H1 ==> OUT
+
+    %% Activation Functions
+    H1 --> A1{{"ReLU +<br/>Dropout"}}
+    A1 -.-> OUT
+
+    %% Training Components (Below main flow)
+    Y_TRUE["Actual<br/>Values"] --> LOSS{{"MSE Loss<br/>+ L1/L2"}}
+    OUT --> LOSS
+    REG["Regularization<br/>L1/L2: λ ∈ [1e-7,1e-2]"] --> LOSS
+    
+    LOSS --> OPT["Optimizer<br/>Adam/SGD/RMSprop<br/>LR: 1e-5 to 1e-2"]
+    LOSS -.-> ES["Early Stop<br/>val_loss<br/>patience=10"]
+    
+    %% Backpropagation
+    OPT -.->|"∇W"| H1
+
+    %% Context Information (Top)
+    subgraph CONTEXT["<b>METHODOLOGY</b>"]
+        HPO["<b>HPO:</b> Grid/Random/Bayesian<br/>Annual Retraining"]
+        WINDOW["<b>Expanding Window OOS</b><br/>Train: t₀→t, Predict: t+1"]
+    end
+    
+    %% HPO influences
+    HPO -.->|"Architecture"| H1
+    HPO -.->|"Training"| OPT
+
+    %% Styling
+    classDef inputClass fill:#e0e7ff,stroke:#6366f1,stroke-width:3px,color:#1f2937
+    classDef hiddenClass fill:#dbeafe,stroke:#3b82f6,stroke-width:3px,color:#1f2937
+    classDef outputClass fill:#d1fae5,stroke:#10b981,stroke-width:4px,color:#1f2937
+    classDef activationClass fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#1f2937
+    classDef lossClass fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#1f2937
+    classDef optimClass fill:#fed7aa,stroke:#ea580c,stroke-width:3px,color:#1f2937
+    classDef contextClass fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef monitorClass fill:#e0f2fe,stroke:#0891b2,stroke-width:2px,color:#1f2937
+
+    class I1,I2,I3,IN inputClass
+    class H1_NODES hiddenClass
+    class O outputClass
+    class A1 activationClass
+    class LOSS,Y_TRUE lossClass
+    class OPT,REG optimClass
+    class HPO,WINDOW contextClass
+    class ES monitorClass`;
+        }
+
+        function getNN2Diagram() {
+            return `%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '28px', 'fontFamily': 'Arial', 'fontWeight': 'bold'}}}%%
+graph LR
+    %% Input Features
+    subgraph INPUT["<b>Input Layer</b>"]
+        I1["x₁"]
+        I2["x₂"]
+        I3["⋮"]
+        IN["xₙ"]
+    end
+
+    %% Hidden Layer 1
+    subgraph H1["<b>Hidden Layer 1</b>"]
+        H1_NODES["16-192<br/>neurons"]
+    end
+
+    %% Hidden Layer 2
+    subgraph H2["<b>Hidden Layer 2</b>"]
+        H2_NODES["8-128<br/>neurons"]
+    end
+
+    %% Output - Final Prediction
+    subgraph OUT["<b>PREDICTION</b>"]
+        O["ŷ<br/>Equity<br/>Premium"]
+    end
+
+    %% Forward Pass - Main Flow
+    INPUT ==> H1
+    H1 ==> H2
+    H2 ==> OUT
+
+    %% Activation Functions
+    H1 --> A1{{"ReLU +<br/>Dropout"}}
+    A1 -.-> H2
+    H2 --> A2{{"ReLU +<br/>Dropout"}}
+    A2 -.-> OUT
+
+    %% Training Components (Below main flow)
+    Y_TRUE["Actual<br/>Values"] --> LOSS{{"MSE Loss<br/>+ L1/L2"}}
+    OUT --> LOSS
+    REG["Regularization<br/>L1/L2: λ ∈ [1e-7,1e-2]"] --> LOSS
+    
+    LOSS --> OPT["Optimizer<br/>Adam/SGD/RMSprop<br/>LR: 1e-5 to 1e-2"]
+    LOSS -.-> ES["Early Stop<br/>val_loss<br/>patience=10"]
+    
+    %% Backpropagation
+    OPT -.->|"∇W"| H2
+    OPT -.->|"∇W"| H1
+
+    %% Context Information (Top)
+    subgraph CONTEXT["<b>METHODOLOGY</b>"]
+        HPO["<b>HPO:</b> Grid/Random/Bayesian<br/>Annual Retraining"]
+        WINDOW["<b>Expanding Window OOS</b><br/>Train: t₀→t, Predict: t+1"]
+    end
+    
+    %% HPO influences
+    HPO -.->|"Architecture"| H1
+    HPO -.->|"Architecture"| H2
+    HPO -.->|"Training"| OPT
+
+    %% Styling
+    classDef inputClass fill:#e0e7ff,stroke:#6366f1,stroke-width:3px,color:#1f2937
+    classDef hiddenClass fill:#dbeafe,stroke:#3b82f6,stroke-width:3px,color:#1f2937
+    classDef outputClass fill:#d1fae5,stroke:#10b981,stroke-width:4px,color:#1f2937
+    classDef activationClass fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#1f2937
+    classDef lossClass fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#1f2937
+    classDef optimClass fill:#fed7aa,stroke:#ea580c,stroke-width:3px,color:#1f2937
+    classDef contextClass fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef monitorClass fill:#e0f2fe,stroke:#0891b2,stroke-width:2px,color:#1f2937
+
+    class I1,I2,I3,IN inputClass
+    class H1_NODES,H2_NODES hiddenClass
+    class O outputClass
+    class A1,A2 activationClass
+    class LOSS,Y_TRUE lossClass
+    class OPT,REG optimClass
+    class HPO,WINDOW contextClass
+    class ES monitorClass`;
+        }
+
+        function getNN3Diagram() {
+            return `%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '28px', 'fontFamily': 'Arial', 'fontWeight': 'bold'}}}%%
+graph LR
+    %% Input Features
+    subgraph INPUT["<b>Input Layer</b>"]
+        I1["x₁"]
+        I2["x₂"]
+        I3["⋮"]
+        IN["xₙ"]
+    end
+
+    %% Hidden Layer 1
+    subgraph H1["<b>Hidden Layer 1</b>"]
+        H1_NODES["16-128<br/>neurons"]
+    end
+
+    %% Hidden Layer 2
+    subgraph H2["<b>Hidden Layer 2</b>"]
+        H2_NODES["8-96<br/>neurons"]
+    end
+
+    %% Hidden Layer 3
+    subgraph H3["<b>Hidden Layer 3</b>"]
+        H3_NODES["4-64<br/>neurons"]
+    end
+
+    %% Output - Final Prediction
+    subgraph OUT["<b>PREDICTION</b>"]
+        O["ŷ<br/>Equity<br/>Premium"]
+    end
+
+    %% Forward Pass - Main Flow
+    INPUT ==> H1
+    H1 ==> H2
+    H2 ==> H3
+    H3 ==> OUT
+
+    %% Activation Functions
+    H1 --> A1{{"ReLU +<br/>Dropout"}}
+    A1 -.-> H2
+    H2 --> A2{{"ReLU +<br/>Dropout"}}
+    A2 -.-> H3
+    H3 --> A3{{"ReLU +<br/>Dropout"}}
+    A3 -.-> OUT
+
+    %% Training Components (Below main flow)
+    Y_TRUE["Actual<br/>Values"] --> LOSS{{"MSE Loss<br/>+ L1/L2"}}
+    OUT --> LOSS
+    REG["Regularization<br/>L1/L2: λ ∈ [1e-7,1e-2]"] --> LOSS
+    
+    LOSS --> OPT["Optimizer<br/>Adam/SGD/RMSprop<br/>LR: 1e-5 to 1e-2"]
+    LOSS -.-> ES["Early Stop<br/>val_loss<br/>patience=10"]
+    
+    %% Backpropagation
+    OPT -.->|"∇W"| H3
+    OPT -.->|"∇W"| H2
+    OPT -.->|"∇W"| H1
+
+    %% Context Information (Top)
+    subgraph CONTEXT["<b>METHODOLOGY</b>"]
+        HPO["<b>HPO:</b> Grid/Random/Bayesian<br/>Annual Retraining"]
+        WINDOW["<b>Expanding Window OOS</b><br/>Train: t₀→t, Predict: t+1"]
+    end
+    
+    %% HPO influences
+    HPO -.->|"Architecture"| H1
+    HPO -.->|"Architecture"| H2
+    HPO -.->|"Architecture"| H3
+    HPO -.->|"Training"| OPT
+
+    %% Styling
+    classDef inputClass fill:#e0e7ff,stroke:#6366f1,stroke-width:3px,color:#1f2937
+    classDef hiddenClass fill:#dbeafe,stroke:#3b82f6,stroke-width:3px,color:#1f2937
+    classDef outputClass fill:#d1fae5,stroke:#10b981,stroke-width:4px,color:#1f2937
+    classDef activationClass fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#1f2937
+    classDef lossClass fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#1f2937
+    classDef optimClass fill:#fed7aa,stroke:#ea580c,stroke-width:3px,color:#1f2937
+    classDef contextClass fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef monitorClass fill:#e0f2fe,stroke:#0891b2,stroke-width:2px,color:#1f2937
+
+    class I1,I2,I3,IN inputClass
+    class H1_NODES,H2_NODES,H3_NODES hiddenClass
+    class O outputClass
+    class A1,A2,A3 activationClass
+    class LOSS,Y_TRUE lossClass
+    class OPT,REG optimClass
+    class HPO,WINDOW contextClass
+    class ES monitorClass`;
+        }
+
+        function getNN4Diagram() {
+            return `%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '28px', 'fontFamily': 'Arial', 'fontWeight': 'bold'}}}%%
+graph LR
+    %% Input Features
+    subgraph INPUT["<b>Input Layer</b>"]
+        I1["x₁"]
+        I2["x₂"]
+        I3["⋮"]
+        IN["xₙ"]
+    end
+
+    %% Hidden Layer 1
+    subgraph H1["<b>Hidden Layer 1</b>"]
+        H1_NODES["32-192<br/>neurons"]
+    end
+
+    %% Hidden Layer 2
+    subgraph H2["<b>Hidden Layer 2</b>"]
+        H2_NODES["16-128<br/>neurons"]
+    end
+
+    %% Hidden Layer 3
+    subgraph H3["<b>Hidden Layer 3</b>"]
+        H3_NODES["8-96<br/>neurons"]
+    end
+
+    %% Hidden Layer 4
+    subgraph H4["<b>Hidden Layer 4</b>"]
+        H4_NODES["4-64<br/>neurons"]
+    end
+
+    %% Output - Final Prediction
+    subgraph OUT["<b>PREDICTION</b>"]
+        O["ŷ<br/>Equity<br/>Premium"]
+    end
+
+    %% Forward Pass - Main Flow
+    INPUT ==> H1
+    H1 ==> H2
+    H2 ==> H3
+    H3 ==> H4
+    H4 ==> OUT
+
+    %% Activation Functions
+    H1 --> A1{{"ReLU +<br/>Dropout"}}
+    A1 -.-> H2
+    H2 --> A2{{"ReLU +<br/>Dropout"}}
+    A2 -.-> H3
+    H3 --> A3{{"ReLU +<br/>Dropout"}}
+    A3 -.-> H4
+    H4 --> A4{{"ReLU +<br/>Dropout"}}
+    A4 -.-> OUT
+
+    %% Training Components (Below main flow)
+    Y_TRUE["Actual<br/>Values"] --> LOSS{{"MSE Loss<br/>+ L1/L2"}}
+    OUT --> LOSS
+    REG["Regularization<br/>L1/L2: λ ∈ [1e-7,1e-2]"] --> LOSS
+    
+    LOSS --> OPT["Optimizer<br/>Adam/SGD/RMSprop<br/>LR: 1e-5 to 1e-2"]
+    LOSS -.-> ES["Early Stop<br/>val_loss<br/>patience=10"]
+    
+    %% Backpropagation
+    OPT -.->|"∇W"| H4
+    OPT -.->|"∇W"| H3
+    OPT -.->|"∇W"| H2
+    OPT -.->|"∇W"| H1
+
+    %% Context Information (Top)
+    subgraph CONTEXT["<b>METHODOLOGY</b>"]
+        HPO["<b>HPO:</b> Grid/Random/Bayesian<br/>Annual Retraining"]
+        WINDOW["<b>Expanding Window OOS</b><br/>Train: t₀→t, Predict: t+1"]
+    end
+    
+    %% HPO influences
+    HPO -.->|"Architecture"| H1
+    HPO -.->|"Architecture"| H2
+    HPO -.->|"Architecture"| H3
+    HPO -.->|"Architecture"| H4
+    HPO -.->|"Training"| OPT
+
+    %% Styling
+    classDef inputClass fill:#e0e7ff,stroke:#6366f1,stroke-width:3px,color:#1f2937
+    classDef hiddenClass fill:#dbeafe,stroke:#3b82f6,stroke-width:3px,color:#1f2937
+    classDef outputClass fill:#d1fae5,stroke:#10b981,stroke-width:4px,color:#1f2937
+    classDef activationClass fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#1f2937
+    classDef lossClass fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#1f2937
+    classDef optimClass fill:#fed7aa,stroke:#ea580c,stroke-width:3px,color:#1f2937
+    classDef contextClass fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef monitorClass fill:#e0f2fe,stroke:#0891b2,stroke-width:2px,color:#1f2937
+
+    class I1,I2,I3,IN inputClass
+    class H1_NODES,H2_NODES,H3_NODES,H4_NODES hiddenClass
+    class O outputClass
+    class A1,A2,A3,A4 activationClass
+    class LOSS,Y_TRUE lossClass
+    class OPT,REG optimClass
+    class HPO,WINDOW contextClass
+    class ES monitorClass`;
+        }
+
+        function getDNN1Diagram() {
+            return `%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '28px', 'fontFamily': 'Arial', 'fontWeight': 'bold'}}}%%
+graph LR
+    %% Input Features
+    subgraph INPUT["<b>Input Layer</b>"]
+        I1["x₁"]
+        I2["x₂"]
+        I3["⋮"]
+        IN["xₙ"]
+    end
+
+    %% Hidden Layer 1 (DBlock)
+    subgraph H1["<b>Hidden Layer 1</b>"]
+        H1_NODES["64-384<br/>neurons"]
+    end
+
+    %% Hidden Layer 2 (DBlock)
+    subgraph H2["<b>Hidden Layer 2</b>"]
+        H2_NODES["32-256<br/>neurons"]
+    end
+
+    %% Hidden Layer 3 (DBlock)
+    subgraph H3["<b>Hidden Layer 3</b>"]
+        H3_NODES["16-192<br/>neurons"]
+    end
+
+    %% Hidden Layer 4 (DBlock)
+    subgraph H4["<b>Hidden Layer 4</b>"]
+        H4_NODES["16-128<br/>neurons"]
+    end
+
+    %% Output - Final Prediction
+    subgraph OUT["<b>PREDICTION</b>"]
+        O["ŷ<br/>Equity<br/>Premium"]
+    end
+
+    %% Forward Pass - Main Flow
+    INPUT ==> H1
+    H1 ==> H2
+    H2 ==> H3
+    H3 ==> H4
+    H4 ==> OUT
+
+    %% DBlock Components (Linear → BatchNorm → ReLU → Dropout)
+    H1 --> BN1{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN1 -.-> H2
+    H2 --> BN2{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN2 -.-> H3
+    H3 --> BN3{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN3 -.-> H4
+    H4 --> BN4{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN4 -.-> OUT
+
+    %% Training Components (Below main flow)
+    Y_TRUE["Actual<br/>Values"] --> LOSS{{"MSE Loss<br/>+ L1/L2"}}
+    OUT --> LOSS
+    REG["Regularization<br/>L1/L2: λ ∈ [1e-7,1e-2]"] --> LOSS
+    
+    LOSS --> OPT["Optimizer<br/>Adam/SGD/RMSprop<br/>LR: 1e-5 to 1e-2"]
+    LOSS -.-> ES["Early Stop<br/>val_loss<br/>patience=10"]
+    
+    %% Backpropagation
+    OPT -.->|"∇W"| H4
+    OPT -.->|"∇W"| H3
+    OPT -.->|"∇W"| H2
+    OPT -.->|"∇W"| H1
+
+    %% Context Information (Top)
+    subgraph CONTEXT["<b>METHODOLOGY</b>"]
+        HPO["<b>HPO:</b> Grid/Random/Bayesian<br/>Annual Retraining"]
+        WINDOW["<b>Expanding Window OOS</b><br/>Train: t₀→t, Predict: t+1"]
+    end
+    
+    %% HPO influences
+    HPO -.->|"Architecture"| H1
+    HPO -.->|"Architecture"| H2
+    HPO -.->|"Architecture"| H3
+    HPO -.->|"Architecture"| H4
+    HPO -.->|"Training"| OPT
+
+    %% Styling
+    classDef inputClass fill:#e0e7ff,stroke:#6366f1,stroke-width:3px,color:#1f2937
+    classDef hiddenClass fill:#dbeafe,stroke:#3b82f6,stroke-width:3px,color:#1f2937
+    classDef outputClass fill:#d1fae5,stroke:#10b981,stroke-width:4px,color:#1f2937
+    classDef dblockClass fill:#fef3c7,stroke:#d97706,stroke-width:3px,color:#1f2937
+    classDef lossClass fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#1f2937
+    classDef optimClass fill:#fed7aa,stroke:#ea580c,stroke-width:3px,color:#1f2937
+    classDef contextClass fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef monitorClass fill:#e0f2fe,stroke:#0891b2,stroke-width:2px,color:#1f2937
+
+    class I1,I2,I3,IN inputClass
+    class H1_NODES,H2_NODES,H3_NODES,H4_NODES hiddenClass
+    class O outputClass
+    class BN1,BN2,BN3,BN4 dblockClass
+    class LOSS,Y_TRUE lossClass
+    class OPT,REG optimClass
+    class HPO,WINDOW contextClass
+    class ES monitorClass`;
+        }
+
+        function getDNN2Diagram() {
+            return `%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '28px', 'fontFamily': 'Arial', 'fontWeight': 'bold'}}}%%
+graph LR
+    %% Input Features
+    subgraph INPUT["<b>Input Layer</b>"]
+        I1["x₁"]
+        I2["x₂"]
+        I3["⋮"]
+        IN["xₙ"]
+    end
+
+    %% Hidden Layer 1 (DBlock)
+    subgraph H1["<b>Hidden Layer 1</b>"]
+        H1_NODES["64-384<br/>neurons"]
+    end
+
+    %% Hidden Layer 2 (DBlock)
+    subgraph H2["<b>Hidden Layer 2</b>"]
+        H2_NODES["48-256<br/>neurons"]
+    end
+
+    %% Hidden Layer 3 (DBlock)
+    subgraph H3["<b>Hidden Layer 3</b>"]
+        H3_NODES["32-192<br/>neurons"]
+    end
+
+    %% Hidden Layer 4 (DBlock)
+    subgraph H4["<b>Hidden Layer 4</b>"]
+        H4_NODES["24-128<br/>neurons"]
+    end
+
+    %% Hidden Layer 5 (DBlock)
+    subgraph H5["<b>Hidden Layer 5</b>"]
+        H5_NODES["12-64<br/>neurons"]
+    end
+
+    %% Output - Final Prediction
+    subgraph OUT["<b>PREDICTION</b>"]
+        O["ŷ<br/>Equity<br/>Premium"]
+    end
+
+    %% Forward Pass - Main Flow
+    INPUT ==> H1
+    H1 ==> H2
+    H2 ==> H3
+    H3 ==> H4
+    H4 ==> H5
+    H5 ==> OUT
+
+    %% DBlock Components (Linear → BatchNorm → ReLU → Dropout)
+    H1 --> BN1{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN1 -.-> H2
+    H2 --> BN2{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN2 -.-> H3
+    H3 --> BN3{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN3 -.-> H4
+    H4 --> BN4{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN4 -.-> H5
+    H5 --> BN5{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN5 -.-> OUT
+
+    %% Training Components (Below main flow)
+    Y_TRUE["Actual<br/>Values"] --> LOSS{{"MSE Loss<br/>+ L1/L2"}}
+    OUT --> LOSS
+    REG["Regularization<br/>L1/L2: λ ∈ [1e-7,1e-2]"] --> LOSS
+    
+    LOSS --> OPT["Optimizer<br/>Adam/SGD/RMSprop<br/>LR: 1e-5 to 1e-2"]
+    LOSS -.-> ES["Early Stop<br/>val_loss<br/>patience=10"]
+    
+    %% Backpropagation
+    OPT -.->|"∇W"| H5
+    OPT -.->|"∇W"| H4
+    OPT -.->|"∇W"| H3
+    OPT -.->|"∇W"| H2
+    OPT -.->|"∇W"| H1
+
+    %% Context Information (Top)
+    subgraph CONTEXT["<b>METHODOLOGY</b>"]
+        HPO["<b>HPO:</b> Grid/Random/Bayesian<br/>Annual Retraining"]
+        WINDOW["<b>Expanding Window OOS</b><br/>Train: t₀→t, Predict: t+1"]
+    end
+    
+    %% HPO influences
+    HPO -.->|"Architecture"| H1
+    HPO -.->|"Architecture"| H2
+    HPO -.->|"Architecture"| H3
+    HPO -.->|"Architecture"| H4
+    HPO -.->|"Architecture"| H5
+    HPO -.->|"Training"| OPT
+
+    %% Styling
+    classDef inputClass fill:#e0e7ff,stroke:#6366f1,stroke-width:3px,color:#1f2937
+    classDef hiddenClass fill:#dbeafe,stroke:#3b82f6,stroke-width:3px,color:#1f2937
+    classDef outputClass fill:#d1fae5,stroke:#10b981,stroke-width:4px,color:#1f2937
+    classDef dblockClass fill:#fef3c7,stroke:#d97706,stroke-width:3px,color:#1f2937
+    classDef lossClass fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#1f2937
+    classDef optimClass fill:#fed7aa,stroke:#ea580c,stroke-width:3px,color:#1f2937
+    classDef contextClass fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef monitorClass fill:#e0f2fe,stroke:#0891b2,stroke-width:2px,color:#1f2937
+
+    class I1,I2,I3,IN inputClass
+    class H1_NODES,H2_NODES,H3_NODES,H4_NODES,H5_NODES hiddenClass
+    class O outputClass
+    class BN1,BN2,BN3,BN4,BN5 dblockClass
+    class LOSS,Y_TRUE lossClass
+    class OPT,REG optimClass
+    class HPO,WINDOW contextClass
+    class ES monitorClass`;
+        }
+
+        function getDNN3Diagram() {
+            return `%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '28px', 'fontFamily': 'Arial', 'fontWeight': 'bold'}}}%%
+graph LR
+    %% Input Features
+    subgraph INPUT["<b>Input Layer</b>"]
+        I1["x₁"]
+        I2["x₂"]
+        I3["⋮"]
+        IN["xₙ"]
+    end
+
+    %% Hidden Layer 1 (DBlock)
+    subgraph H1["<b>Hidden Layer 1</b>"]
+        H1_NODES["128-512<br/>neurons"]
+    end
+
+    %% Hidden Layer 2 (DBlock)
+    subgraph H2["<b>Hidden Layer 2</b>"]
+        H2_NODES["64-384<br/>neurons"]
+    end
+
+    %% Hidden Layer 3 (DBlock)
+    subgraph H3["<b>Hidden Layer 3</b>"]
+        H3_NODES["48-256<br/>neurons"]
+    end
+
+    %% Hidden Layer 4 (DBlock)
+    subgraph H4["<b>Hidden Layer 4</b>"]
+        H4_NODES["32-192<br/>neurons"]
+    end
+
+    %% Hidden Layer 5 (DBlock)
+    subgraph H5["<b>Hidden Layer 5</b>"]
+        H5_NODES["16-128<br/>neurons"]
+    end
+
+    %% Output - Final Prediction
+    subgraph OUT["<b>PREDICTION</b>"]
+        O["ŷ<br/>Equity<br/>Premium"]
+    end
+
+    %% Forward Pass - Main Flow
+    INPUT ==> H1
+    H1 ==> H2
+    H2 ==> H3
+    H3 ==> H4
+    H4 ==> H5
+    H5 ==> OUT
+
+    %% DBlock Components (Linear → BatchNorm → ReLU → Dropout)
+    H1 --> BN1{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN1 -.-> H2
+    H2 --> BN2{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN2 -.-> H3
+    H3 --> BN3{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN3 -.-> H4
+    H4 --> BN4{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN4 -.-> H5
+    H5 --> BN5{{"BatchNorm<br/>+ ReLU<br/>+ Dropout"}}
+    BN5 -.-> OUT
+
+    %% Training Components (Below main flow)
+    Y_TRUE["Actual<br/>Values"] --> LOSS{{"MSE Loss<br/>+ L1/L2"}}
+    OUT --> LOSS
+    REG["Regularization<br/>L1/L2: λ ∈ [1e-7,1e-2]"] --> LOSS
+    
+    LOSS --> OPT["Optimizer<br/>Adam/SGD/RMSprop<br/>LR: 1e-5 to 1e-2"]
+    LOSS -.-> ES["Early Stop<br/>val_loss<br/>patience=10"]
+    
+    %% Backpropagation
+    OPT -.->|"∇W"| H5
+    OPT -.->|"∇W"| H4
+    OPT -.->|"∇W"| H3
+    OPT -.->|"∇W"| H2
+    OPT -.->|"∇W"| H1
+
+    %% Context Information (Top)
+    subgraph CONTEXT["<b>METHODOLOGY</b>"]
+        HPO["<b>HPO:</b> Grid/Random/Bayesian<br/>Annual Retraining"]
+        WINDOW["<b>Expanding Window OOS</b><br/>Train: t₀→t, Predict: t+1"]
+    end
+    
+    %% HPO influences
+    HPO -.->|"Architecture"| H1
+    HPO -.->|"Architecture"| H2
+    HPO -.->|"Architecture"| H3
+    HPO -.->|"Architecture"| H4
+    HPO -.->|"Architecture"| H5
+    HPO -.->|"Training"| OPT
+
+    %% Styling
+    classDef inputClass fill:#e0e7ff,stroke:#6366f1,stroke-width:3px,color:#1f2937
+    classDef hiddenClass fill:#dbeafe,stroke:#3b82f6,stroke-width:3px,color:#1f2937
+    classDef outputClass fill:#d1fae5,stroke:#10b981,stroke-width:4px,color:#1f2937
+    classDef dblockClass fill:#fef3c7,stroke:#d97706,stroke-width:3px,color:#1f2937
+    classDef lossClass fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#1f2937
+    classDef optimClass fill:#fed7aa,stroke:#ea580c,stroke-width:3px,color:#1f2937
+    classDef contextClass fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef monitorClass fill:#e0f2fe,stroke:#0891b2,stroke-width:2px,color:#1f2937
+
+    class I1,I2,I3,IN inputClass
+    class H1_NODES,H2_NODES,H3_NODES,H4_NODES,H5_NODES hiddenClass
+    class O outputClass
+    class BN1,BN2,BN3,BN4,BN5 dblockClass
+    class LOSS,Y_TRUE lossClass
+    class OPT,REG optimClass
+    class HPO,WINDOW contextClass
+    class ES monitorClass`;
+        }
+
+        function getNN5Diagram() {
+            return `%%{init: {'theme':'base', 'themeVariables': { 'fontSize': '28px', 'fontFamily': 'Arial', 'fontWeight': 'bold'}}}%%
+graph LR
+    %% Input Features
+    subgraph INPUT["<b>Input Layer</b>"]
+        I1["x₁"]
+        I2["x₂"]
+        I3["⋮"]
+        IN["xₙ"]
+    end
+
+    %% Hidden Layer 1
+    subgraph H1["<b>Hidden Layer 1</b>"]
+        H1_NODES["32-256<br/>neurons"]
+    end
+
+    %% Hidden Layer 2
+    subgraph H2["<b>Hidden Layer 2</b>"]
+        H2_NODES["16-192<br/>neurons"]
+    end
+
+    %% Hidden Layer 3
+    subgraph H3["<b>Hidden Layer 3</b>"]
+        H3_NODES["8-128<br/>neurons"]
+    end
+
+    %% Hidden Layer 4
+    subgraph H4["<b>Hidden Layer 4</b>"]
+        H4_NODES["8-96<br/>neurons"]
+    end
+
+    %% Hidden Layer 5
+    subgraph H5["<b>Hidden Layer 5</b>"]
+        H5_NODES["4-64<br/>neurons"]
+    end
+
+    %% Output - Final Prediction
+    subgraph OUT["<b>PREDICTION</b>"]
+        O["ŷ<br/>Equity<br/>Premium"]
+    end
+
+    %% Forward Pass - Main Flow
+    INPUT ==> H1
+    H1 ==> H2
+    H2 ==> H3
+    H3 ==> H4
+    H4 ==> H5
+    H5 ==> OUT
+
+    %% Activation Functions
+    H1 --> A1{{"ReLU +<br/>Dropout"}}
+    A1 -.-> H2
+    H2 --> A2{{"ReLU +<br/>Dropout"}}
+    A2 -.-> H3
+    H3 --> A3{{"ReLU +<br/>Dropout"}}
+    A3 -.-> H4
+    H4 --> A4{{"ReLU +<br/>Dropout"}}
+    A4 -.-> H5
+    H5 --> A5{{"ReLU +<br/>Dropout"}}
+    A5 -.-> OUT
+
+    %% Training Components (Below main flow)
+    Y_TRUE["Actual<br/>Values"] --> LOSS{{"MSE Loss<br/>+ L1/L2"}}
+    OUT --> LOSS
+    REG["Regularization<br/>L1/L2: λ ∈ [1e-7,1e-2]"] --> LOSS
+    
+    LOSS --> OPT["Optimizer<br/>Adam/SGD/RMSprop<br/>LR: 1e-5 to 1e-2"]
+    LOSS -.-> ES["Early Stop<br/>val_loss<br/>patience=10"]
+    
+    %% Backpropagation
+    OPT -.->|"∇W"| H5
+    OPT -.->|"∇W"| H4
+    OPT -.->|"∇W"| H3
+    OPT -.->|"∇W"| H2
+    OPT -.->|"∇W"| H1
+
+    %% Context Information (Top)
+    subgraph CONTEXT["<b>METHODOLOGY</b>"]
+        HPO["<b>HPO:</b> Grid/Random/Bayesian<br/>Annual Retraining"]
+        WINDOW["<b>Expanding Window OOS</b><br/>Train: t₀→t, Predict: t+1"]
+    end
+    
+    %% HPO influences
+    HPO -.->|"Architecture"| H1
+    HPO -.->|"Architecture"| H3
+    HPO -.->|"Architecture"| H5
+    HPO -.->|"Training"| OPT
+
+    %% Styling
+    classDef inputClass fill:#e0e7ff,stroke:#6366f1,stroke-width:3px,color:#1f2937
+    classDef hiddenClass fill:#dbeafe,stroke:#3b82f6,stroke-width:3px,color:#1f2937
+    classDef outputClass fill:#d1fae5,stroke:#10b981,stroke-width:4px,color:#1f2937
+    classDef activationClass fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#1f2937
+    classDef lossClass fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#1f2937
+    classDef optimClass fill:#fed7aa,stroke:#ea580c,stroke-width:3px,color:#1f2937
+    classDef contextClass fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#1f2937
+    classDef monitorClass fill:#e0f2fe,stroke:#0891b2,stroke-width:2px,color:#1f2937
+
+    class I1,I2,I3,IN inputClass
+    class H1_NODES,H2_NODES,H3_NODES,H4_NODES,H5_NODES hiddenClass
+    class O outputClass
+    class A1,A2,A3,A4,A5 activationClass
+    class LOSS,Y_TRUE lossClass
+    class OPT,REG optimClass
+    class HPO,WINDOW contextClass
+    class ES monitorClass`;
+        }
+
+        // Initialize mermaid with larger default settings
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            flowchart: {
+                nodeSpacing: 100,
+                rankSpacing: 150,
+                curve: 'basis',
+                padding: 30,
+                useMaxWidth: true
+            }
+        });
+    </script>
+</body>
+</html>
