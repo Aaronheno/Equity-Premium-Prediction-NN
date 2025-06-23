@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import 'katex/dist/katex.min.css'
+// @ts-ignore
 import { InlineMath, BlockMath } from 'react-katex'
 
 interface MathFormulaProps {
