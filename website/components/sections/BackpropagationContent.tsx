@@ -314,7 +314,7 @@ export default function BackpropagationContent() {
                         <div>
                           <h4 className="font-semibold text-text-primary mb-3">ReLU Derivative:</h4>
                           <div className="bg-bg-primary border border-bg-tertiary rounded-lg p-4 space-y-2 text-sm font-mono">
-                            <div>If z₃ > 0: ReLU'(z₃) = 1 <span className="text-accent-green">(gradient passes)</span></div>
+                            <div>If z₃ &gt; 0: ReLU'(z₃) = 1 <span className="text-accent-green">(gradient passes)</span></div>
                             <div>If z₃ ≤ 0: ReLU'(z₃) = 0 <span className="text-accent-red">(gradient blocked)</span></div>
                             <div className="border-t border-bg-tertiary pt-2">
                               <div className="text-accent-orange">Element-wise multiplication with error</div>
