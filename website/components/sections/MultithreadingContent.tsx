@@ -442,8 +442,6 @@ python -m src.cli run --method bayes_oos --server-mode --adaptive-resources
         <NavigationButtons 
           prevHref="/interactive-architecture"
           prevLabel="Interactive Architecture"
-          nextHref={null}
-          nextLabel={null}
         />
       </div>
     </div>
